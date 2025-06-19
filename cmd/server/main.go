@@ -16,10 +16,10 @@ const (
 )
 
 type Metric struct {
-	ID    string  `json:"id"`
-	MType string  `json:"type"`
-	Value float64 `json:"value,omitempty"`
-	Delta int64   `json:"delta,omitempty"`
+	ID    string
+	MType string
+	Value float64
+	Delta int64
 }
 
 type MemStorage struct {
@@ -36,10 +36,7 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
