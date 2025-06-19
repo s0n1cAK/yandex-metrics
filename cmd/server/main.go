@@ -10,9 +10,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+// should not use ALL_CAPS in Go names; use CamelCase instead
+// Не уверен, что это корректно, когда мы говорим за const
 const (
-	IP_ADDR = "localhost"
-	PORT    = "8080"
+	serverAddr = "localhost"
+	serverPort = "8080"
 )
 
 type Metric struct {
@@ -42,9 +44,9 @@ func main() {
 
 	r.Post("/update/{type}/{metric}/{value}", storage.SetHandler)
 
-	sAddr := fmt.Sprint(IP_ADDR, ":", PORT)
+	sAddr := fmt.Sprint(serverAddr, ":", serverPort)
 
-	log.Printf("Starting server on %s:%s", IP_ADDR, PORT)
+	log.Printf("Starting server on %s:%s", serverAddr, serverPort)
 	err := http.ListenAndServe(sAddr, r)
 	if err != nil {
 		panic(err)
