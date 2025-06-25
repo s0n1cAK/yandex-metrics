@@ -1,0 +1,3 @@
+test:
+	@echo "Testing all modules"
+	go test -v ./...

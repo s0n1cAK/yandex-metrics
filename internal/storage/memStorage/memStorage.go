@@ -1,0 +1,47 @@
+package memstorage
+
+import (
+	"fmt"
+
+	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+)
+
+type MemStorage struct {
+	values map[string]models.Metrics
+}
+
+func New() *MemStorage {
+	return &MemStorage{
+		values: make(map[string]models.Metrics),
+	}
+}
+
+func (s *MemStorage) Set(key string, value models.Metrics) error {
+	if key == "" {
+		return fmt.Errorf("empty key")
+	}
+
+	if value.ID == "" {
+		return fmt.Errorf("Metric name is nil")
+	}
+
+	if key != value.ID {
+		return fmt.Errorf("%s does't equal to %s", key, value.ID)
+	}
+
+	if value.MType != models.Gauge && value.MType != models.Counter {
+		return fmt.Errorf("%s unsupported type of metric", value.MType)
+	}
+
+	s.values[key] = value
+	return nil
+}
+
+func (s *MemStorage) Get(key string) (models.Metrics, bool) {
+	val, ok := s.values[key]
+	return val, ok
+}
+
+func (s *MemStorage) GetAll() map[string]models.Metrics {
+	return s.values
+}
