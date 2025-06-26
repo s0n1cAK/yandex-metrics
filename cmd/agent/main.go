@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/agent"
-	agentStorage "github.com/s0n1cAK/yandex-metrics/internal/agent/storage"
+	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 )
 
 const (
@@ -21,28 +21,16 @@ const (
 )
 
 func main() {
-	metricsStorage := agentStorage.New()
+	metricsStorage := memstorage.New()
 	endpoint := fmt.Sprintf("http://%s:%s", serverAddr, serverPort)
 
 	agent := agent.New(&http.Client{}, endpoint, metricsStorage, time.Now())
 
-	var count int64
-	// Не очень нравится это структура. Для её исправления нужно чтобы report подразумевал сам сбор метрик. В принципе звучит норм, но лучше уточню
 	for {
-		count++
-
-		// Собираем метрики
-		err := agent.CollectRuntime()
-		if err != nil {
-			log.Printf("Error while reporting: %s", err)
-		}
-		agent.RandomValue()
-		agent.Counter(count)
-
 		// Отправляем метрики
 		if time.Since(agent.LastReportTime) >= reportInterval {
 			log.Printf("Reporting metrics")
-			err = agent.Report()
+			err := agent.Report()
 			if err != nil {
 				log.Printf("Error while reporting: %s", err)
 			}

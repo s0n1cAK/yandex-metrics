@@ -35,7 +35,10 @@ func New(sAddr string, sPort int, storage storage.Storage) (*Config, error) {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	r.Post("/update/{type}/{metric}/{value}", handlers.Set(storage))
+	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetric(storage))
+	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
+	r.Get("/", handlers.GetMetrics(storage))
+
 	return &Config{
 		sAddr:  sAddr,
 		sPort:  sPort,

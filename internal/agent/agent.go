@@ -4,11 +4,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/agent/storage"
+	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
+type Storage interface {
+	Set(key string, value models.Metrics) error
+	Get(key string) (models.Metrics, bool)
+	GetAll() map[string]models.Metrics
+	Clear()
+}
+
 type Config struct {
-	Storage        *storage.AgentStorage
+	Storage        Storage
 	LastReportTime time.Time
 	Client         *http.Client
 	Server         string
@@ -21,7 +28,7 @@ type Agent interface {
 	Report() error
 }
 
-func New(client *http.Client, server string, storage *storage.AgentStorage, lastReportTime time.Time) *Config {
+func New(client *http.Client, server string, storage Storage, lastReportTime time.Time) *Config {
 	return &Config{
 		Client:         client,
 		Server:         server,

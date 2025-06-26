@@ -45,3 +45,9 @@ func (s *MemStorage) Get(key string) (models.Metrics, bool) {
 func (s *MemStorage) GetAll() map[string]models.Metrics {
 	return s.values
 }
+
+func (s *MemStorage) Clear() {
+	for k := range s.values {
+		delete(s.values, k)
+	}
+}

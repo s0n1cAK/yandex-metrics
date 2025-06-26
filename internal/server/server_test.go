@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -67,7 +69,7 @@ func TestServerValidation_New(t *testing.T) {
 	}
 }
 
-func TestServerRoutes_Set(t *testing.T) {
+func TestServerRoutes_SetMetric(t *testing.T) {
 	storage := memStorage.New()
 
 	type want struct {
@@ -117,7 +119,7 @@ func TestServerRoutes_Set(t *testing.T) {
 				storage: storage,
 				metric: models.Metrics{
 					ID:    "Test",
-					MType: models.Counter,
+					MType: models.Gauge,
 					Delta: lib.IntPtr(33),
 				},
 				wantErr: true,
@@ -191,4 +193,160 @@ func TestServerRoutes_Set(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerRoutes_GetMetric(t *testing.T) {
+
+	type want struct {
+		metric  models.Metrics
+		wantErr bool
+	}
+	tests := []struct {
+		name  string
+		want  want
+		store models.Metrics
+	}{
+		{
+			name: "Valid Request",
+			want: want{
+				metric: models.Metrics{
+					ID:    "Test",
+					MType: models.Gauge,
+					Value: lib.FloatPtr(0.41),
+				},
+				wantErr: false,
+			},
+			store: models.Metrics{
+				ID:    "Test",
+				MType: models.Gauge,
+				Value: lib.FloatPtr(0.41),
+			},
+		},
+		{
+			name: "Invalid Request (Ask Counter get Gauge)",
+			want: want{
+				metric: models.Metrics{
+					ID:    "Test1",
+					MType: models.Counter,
+					Value: lib.FloatPtr(0.41),
+				},
+				wantErr: true,
+			},
+			store: models.Metrics{
+				ID:    "Test1",
+				MType: models.Gauge,
+				Delta: lib.IntPtr(41),
+			},
+		},
+		{
+			name: "Invalid Request (Ask Gauge get Counter)",
+			want: want{
+				metric: models.Metrics{
+					ID:    "Test",
+					MType: models.Gauge,
+					Delta: lib.IntPtr(33),
+				},
+				wantErr: true,
+			},
+			store: models.Metrics{
+				ID:    "Test",
+				MType: models.Counter,
+				Value: lib.FloatPtr(41),
+			},
+		},
+		{
+			name: "Invalid Request (Empty MType)",
+			want: want{
+				metric: models.Metrics{
+					ID:    "Test",
+					MType: "",
+				},
+				wantErr: true,
+			},
+			store: models.Metrics{
+				ID:    "Test",
+				MType: models.Counter,
+				Delta: lib.IntPtr(41),
+			},
+		},
+		{
+			name: "Invalid Request (Unknown type of metric)",
+			want: want{
+				metric: models.Metrics{
+					ID:    "Test",
+					MType: "Unknown",
+				},
+				wantErr: true,
+			},
+			store: models.Metrics{
+				ID:    "Test",
+				MType: models.Counter,
+				Delta: lib.IntPtr(41),
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			storage := memStorage.New()
+			srv, err := New("localhost", 8080, storage)
+			require.NoError(t, err)
+
+			storage.Set(test.store.ID, test.store)
+
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/value/%s/%s", test.want.metric.MType, test.want.metric.ID), nil)
+			w := httptest.NewRecorder()
+
+			srv.Router.ServeHTTP(w, req)
+
+			body, err := io.ReadAll(w.Result().Body)
+			require.NoError(t, err)
+
+			if test.want.wantErr {
+				require.NotEqual(t, http.StatusOK, w.Code)
+				return
+			}
+
+			require.Equal(t, http.StatusOK, w.Code)
+
+			var payload models.Metrics
+			err = json.Unmarshal(body, &payload)
+			require.NoError(t, err)
+
+			require.Equal(t, test.want.metric.ID, payload.ID)
+			require.Equal(t, test.want.metric.MType, payload.MType)
+
+			switch test.want.metric.MType {
+			case models.Gauge:
+				require.NotNil(t, payload.Value)
+				require.InEpsilon(t, *test.want.metric.Value, *payload.Value, 0.00001)
+			case models.Counter:
+				require.NotNil(t, payload.Delta)
+				require.Equal(t, *test.want.metric.Delta, *payload.Delta)
+			default:
+				t.Fatalf("Unknown Type: %s", test.want.metric.MType)
+			}
+		})
+	}
+}
+
+func TestServerRoutes_GetMetrics(t *testing.T) {
+	s := memStorage.New()
+	srv, err := New("localhost", 8080, s)
+	require.NoError(t, err)
+
+	testMetric := models.Metrics{
+		ID:    "Test",
+		MType: models.Gauge,
+		Value: lib.FloatPtr(0.41),
+	}
+
+	s.Set("Test", testMetric)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	require.Equal(t, http.StatusOK, w.Code)
+	srv.Router.ServeHTTP(w, req)
+
+	body, err := io.ReadAll(w.Result().Body)
+	require.NotNil(t, body)
 }

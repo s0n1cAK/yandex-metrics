@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -17,7 +18,7 @@ import (
 При попытке передать запрос с некорректным типом метрики или значением возвращать http.StatusBadRequest. ✓
 */
 
-func Set(s storage.Storage) http.HandlerFunc {
+func SetMetric(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		rMetric := models.Metrics{
@@ -46,7 +47,7 @@ func Set(s storage.Storage) http.HandlerFunc {
 
 			rMetric.Value = &val
 		case models.Counter:
-			param := chi.URLParam(r, "delta")
+			param := chi.URLParam(r, "value")
 			if param == "" {
 				http.Error(w, "Missing 'delta' parameter", http.StatusBadRequest)
 				return
@@ -83,5 +84,60 @@ func Set(s storage.Storage) http.HandlerFunc {
 
 		w.Header().Add("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func GetMetric(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		rMetric := models.Metrics{
+			ID:    chi.URLParam(r, "metric"),
+			MType: chi.URLParam(r, "type"),
+		}
+
+		if rMetric.ID == "" || rMetric.MType == "" {
+			http.Error(w, "Metric name or type not specified", http.StatusNotFound)
+			return
+		}
+
+		value, ok := s.Get(rMetric.ID)
+		if !ok {
+			http.Error(w, "Metric hasn't found", http.StatusNotFound)
+			return
+		}
+
+		if value.MType != rMetric.MType {
+			http.Error(w, "Metric with that type hasn't found", http.StatusNotFound)
+			return
+		}
+
+		payload, err := json.Marshal(value)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(string(payload)))
+
+	}
+}
+
+func GetMetrics(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var metrics []string
+
+		for _, metirc := range s.GetAll() {
+			metrics = append(metrics, metirc.ID)
+		}
+		payload, err := json.Marshal(metrics)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(string(payload)))
 	}
 }

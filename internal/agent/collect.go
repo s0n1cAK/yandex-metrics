@@ -6,7 +6,12 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+)
+
+const (
+	MetricNameRandomValue = "RandomValue"
 )
 
 var runtimeMetrics = []string{
@@ -61,7 +66,7 @@ func (agent *Config) CollectRuntime() error {
 			return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
 		}
 
-		agent.Storage.Set(models.Metrics{
+		agent.Storage.Set(metirc, models.Metrics{
 			ID:    metirc,
 			MType: models.Gauge,
 			Value: &metircToReport,
@@ -71,18 +76,28 @@ func (agent *Config) CollectRuntime() error {
 }
 
 func (agent *Config) RandomValue() {
+
 	randFloat := rand.Float64()
-	agent.Storage.Set(models.Metrics{
-		ID:    "RandomValue",
+	agent.Storage.Set(MetricNameRandomValue, models.Metrics{
+		ID:    MetricNameRandomValue,
 		MType: models.Gauge,
-		Value: &randFloat,
+		Value: lib.FloatPtr(randFloat),
 	})
 }
 
-func (agent *Config) Counter(value int64) {
-	agent.Storage.Set(models.Metrics{
-		ID:    "PollCount",
+func (agent *Config) IncrementCounter(ID string, value int64) {
+	metric, ok := agent.Storage.Get(ID)
+
+	var newDelta int64
+	if ok && metric.MType == models.Counter && metric.Delta != nil {
+		newDelta = *metric.Delta + value
+	} else {
+		newDelta = value
+	}
+
+	agent.Storage.Set(ID, models.Metrics{
+		ID:    ID,
 		MType: models.Counter,
-		Delta: &value,
+		Delta: &newDelta,
 	})
 }
