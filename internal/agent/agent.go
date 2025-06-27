@@ -27,12 +27,11 @@ type Agent struct {
 	Server         string
 }
 
-func New(client *http.Client, server string, storage Storage, scheme string) *Agent {
+func New(client *http.Client, server string, storage Storage) *Agent {
 	return &Agent{
 		Client:  client,
 		Server:  server,
 		Storage: storage,
-		Scheme:  scheme,
 	}
 }
 

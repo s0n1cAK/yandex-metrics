@@ -10,7 +10,7 @@ import (
 )
 
 func TestAgent_New(t *testing.T) {
-	agent := New(&http.Client{}, "localhost:8080", memstorage.New(), "http")
+	agent := New(&http.Client{}, "localhost:8080", memstorage.New())
 	require.NotNil(t, agent)
 }
 
