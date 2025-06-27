@@ -23,14 +23,16 @@ type Agent struct {
 	Storage        Storage
 	LastReportTime time.Duration
 	Client         *http.Client
+	Scheme         string
 	Server         string
 }
 
-func New(client *http.Client, server string, storage Storage) *Agent {
+func New(client *http.Client, server string, storage Storage, scheme string) *Agent {
 	return &Agent{
 		Client:  client,
 		Server:  server,
 		Storage: storage,
+		Scheme:  scheme,
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
+const scheme = "http://"
+
 func (agent *Agent) Report() error {
 	OP := "Agent.Report"
 	var endpoint string
@@ -14,9 +16,9 @@ func (agent *Agent) Report() error {
 	for _, metric := range agent.Storage.GetAll() {
 		switch metric.MType {
 		case models.Gauge:
-			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Value)
+			endpoint = fmt.Sprintf("%s://%s/update/%s/%s/%v", agent.Scheme, agent.Server, metric.MType, metric.ID, *metric.Value)
 		case models.Counter:
-			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Delta)
+			endpoint = fmt.Sprintf("%s://%s/update/%s/%s/%v", agent.Scheme, agent.Server, metric.MType, metric.ID, *metric.Delta)
 		default:
 			return fmt.Errorf("unknown type %s", metric.MType)
 		}
