@@ -12,7 +12,7 @@ func main() {
 	cfg := config.NewAgentConfig()
 	metricsStorage := memstorage.New()
 
-	agent := agent.New(&http.Client{}, string(cfg.Endpoint), metricsStorage)
+	agent := agent.New(&http.Client{}, string(cfg.Endpoint), metricsStorage, "http")
 
 	agent.Run(cfg.PollTime.Duration(), cfg.ReportTime.Duration())
 }
