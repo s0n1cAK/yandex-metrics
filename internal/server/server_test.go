@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -298,10 +297,13 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 
 			srv.Router.ServeHTTP(w, req)
 
-			body, err := io.ReadAll(w.Result().Body)
-			defer w.Result().Body.Close()
+			res := w.Result()
+			defer res.Body.Close()
+
+			body, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
+			response := string(body[:])
 			if test.want.wantErr {
 				require.NotEqual(t, http.StatusOK, w.Code)
 				return
@@ -309,20 +311,15 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, w.Code)
 
-			var payload models.Metrics
-			err = json.Unmarshal(body, &payload)
-			require.NoError(t, err)
-
-			require.Equal(t, test.want.metric.ID, payload.ID)
-			require.Equal(t, test.want.metric.MType, payload.MType)
-
 			switch test.want.metric.MType {
 			case models.Gauge:
-				require.NotNil(t, payload.Value)
-				require.InEpsilon(t, *test.want.metric.Value, *payload.Value, 0.00001)
+				value, _ := strconv.ParseFloat(response, 64)
+				require.NotNil(t, body)
+				require.InEpsilon(t, *test.want.metric.Value, value, 0.00001)
 			case models.Counter:
-				require.NotNil(t, payload.Delta)
-				require.Equal(t, *test.want.metric.Delta, *payload.Delta)
+				value, _ := strconv.ParseInt(response, 10, 64)
+				require.NotNil(t, body)
+				require.Equal(t, *test.want.metric.Delta, value)
 			default:
 				t.Fatalf("Unknown Type: %s", test.want.metric.MType)
 			}
@@ -348,8 +345,10 @@ func TestServerRoutes_GetMetrics(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	srv.Router.ServeHTTP(w, req)
 
-	body, err := io.ReadAll(w.Result().Body)
-	defer w.Result().Body.Close()
+	res := w.Result()
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 	require.NotNil(t, body)
 }

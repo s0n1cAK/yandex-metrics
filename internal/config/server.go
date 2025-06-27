@@ -19,7 +19,7 @@ func (o ServerConfig) String() string {
 func (o *ServerConfig) Set(s string) error {
 	gAddress := strings.Split(s, ":")
 	if len(gAddress) < 2 {
-		return errors.New("Need address in a form host:port")
+		return errors.New("need address in a form host:port")
 	}
 
 	port, err := strconv.Atoi(gAddress[1])
