@@ -46,12 +46,15 @@ func New(sAddr string, sPort int, storage storage.Storage) (*Config, error) {
 	}, nil
 }
 
-func (c *Config) MustStart() {
+func (c *Config) Start() error {
+	OP := "Server.Start"
+
 	err := http.ListenAndServe(
 		fmt.Sprintf("%s:%v", c.sAddr, c.sPort),
 		c.Router,
 	)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("%s: %s", OP, err)
 	}
+	return nil
 }

@@ -1,15 +1,8 @@
 package agent
 
 // До 1:1
-// func TestAgent_Report(t *testing.T) {
-// 	storage := agentStorage.New()
-// 	agent := &Config{
-// 		Storage:        storage,
-// 		LastReportTime: time.Now(),
-// 		Client:         &http.Client{},
-// 		Server: ,
-// 	}
-// }
+// httptest для client request
+// В ближайщем будущем
 
 // func (agent *Config) Report() error {
 // 	var endpoint string

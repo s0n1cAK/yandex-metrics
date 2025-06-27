@@ -10,14 +10,6 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 )
 
-/*
-Принимать метрики по протоколу HTTP методом POST. ✓
-Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>, Content-Type: text/plain. ✓
-При успешном приёме возвращать http.StatusOK. ✓
-При попытке передать запрос без имени метрики возвращать http.StatusNotFound. ✓
-При попытке передать запрос с некорректным типом метрики или значением возвращать http.StatusBadRequest. ✓
-*/
-
 func SetMetric(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -111,6 +103,7 @@ func GetMetric(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
+		// Говорим код ошибки, но без текста
 		payload, err := json.Marshal(value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -131,6 +124,8 @@ func GetMetrics(s storage.Storage) http.HandlerFunc {
 		for _, metirc := range s.GetAll() {
 			metrics = append(metrics, metirc.ID)
 		}
+
+		// Говорим код ошибки, но без текста
 		payload, err := json.Marshal(metrics)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

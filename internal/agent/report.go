@@ -2,22 +2,14 @@ package agent
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
-func (agent *Config) Report() error {
+func (agent *Agent) Report() error {
 	OP := "Agent.Report"
 	var endpoint string
-
-	err := agent.CollectRuntime()
-	if err != nil {
-		log.Printf("Error while reporting: %s", err)
-	}
-	agent.RandomValue()
-	agent.IncrementCounter("PollCount", 1)
 
 	for _, metric := range agent.Storage.GetAll() {
 		switch metric.MType {

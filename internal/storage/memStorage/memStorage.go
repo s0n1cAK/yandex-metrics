@@ -25,10 +25,6 @@ func (s *MemStorage) Set(key string, value models.Metrics) error {
 		return fmt.Errorf("Metric name is nil")
 	}
 
-	if key != value.ID {
-		return fmt.Errorf("%s does't equal to %s", key, value.ID)
-	}
-
 	if value.MType != models.Gauge && value.MType != models.Counter {
 		return fmt.Errorf("%s unsupported type of metric", value.MType)
 	}
@@ -50,4 +46,8 @@ func (s *MemStorage) Clear() {
 	for k := range s.values {
 		delete(s.values, k)
 	}
+}
+
+func (s *MemStorage) Delete(key string) {
+	delete(s.values, key)
 }

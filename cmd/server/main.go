@@ -1,27 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
 	memStorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 )
 
-// should not use ALL_CAPS in Go names; use CamelCase instead
-// Не уверен, что это корректно, когда мы говорим за const
-const (
-	serverAddr = "localhost"
-	serverPort = 8080
-)
-
 func main() {
+	cfg := config.NewServerConfig()
 	storage := memStorage.New()
 
-	srv, err := server.New(serverAddr, serverPort, storage)
+	fmt.Println(cfg)
+	srv, err := server.New(cfg.Address, cfg.Port, storage)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Starting server on %s:%v", serverAddr, serverPort)
-	srv.MustStart()
+	log.Printf("Starting server on %s:%v", cfg.Address, cfg.Port)
+	err = srv.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }

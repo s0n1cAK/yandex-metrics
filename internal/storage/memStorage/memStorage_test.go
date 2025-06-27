@@ -92,18 +92,6 @@ func TestMemStorage_Set(t *testing.T) {
 			},
 		},
 		{
-			name: "Key and metric.ID is not equal",
-			want: want{
-				key: "TestMetrics",
-				value: models.Metrics{
-					ID:    "TestMetric",
-					MType: models.Gauge,
-					Value: lib.FloatPtr(0.41),
-				},
-				wantErr: true,
-			},
-		},
-		{
 			name: "Unknown type of metric",
 			want: want{
 				key: "TestMetric",

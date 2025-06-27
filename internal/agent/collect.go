@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"runtime"
+	"time"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
@@ -44,8 +45,13 @@ var runtimeMetrics = []string{
 	"TotalAlloc",
 }
 
-// Вылядит не оч, как будто бы есть явно способ лучше и эффективнее, но я его пока не нашел
-func (agent *Config) CollectRuntime() error {
+func uniqMetric(m string) string {
+	return fmt.Sprintf("%s-%v", m, time.Now().UnixNano())
+}
+
+// В будущем переписать на структуры с нужными полями, которая будет заполняться, из-за того что reflect
+// тяжелый и медленный пакет
+func (agent *Agent) CollectRuntime() error {
 	OP := "agent.CollectRuntime"
 	for _, metirc := range runtimeMetrics {
 		var ms runtime.MemStats
@@ -66,26 +72,36 @@ func (agent *Config) CollectRuntime() error {
 			return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
 		}
 
-		agent.Storage.Set(metirc, models.Metrics{
+		err := agent.Storage.Set(uniqMetric(metirc), models.Metrics{
 			ID:    metirc,
 			MType: models.Gauge,
 			Value: &metircToReport,
 		})
+		if err != nil {
+			return fmt.Errorf("%s: Error: %s", OP, err)
+		}
 	}
 	return nil
 }
 
-func (agent *Config) RandomValue() {
+func (agent *Agent) CollectRandomValue() error {
+	OP := "agent.CollectRandomValue"
 
 	randFloat := rand.Float64()
-	agent.Storage.Set(MetricNameRandomValue, models.Metrics{
+	err := agent.Storage.Set(uniqMetric(MetricNameRandomValue), models.Metrics{
 		ID:    MetricNameRandomValue,
 		MType: models.Gauge,
 		Value: lib.FloatPtr(randFloat),
 	})
+	if err != nil {
+		return fmt.Errorf("%s: Error: %s", OP, err)
+	}
+	return nil
 }
 
-func (agent *Config) IncrementCounter(ID string, value int64) {
+func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
+	OP := "agent.CollectIncrementCounter"
+
 	metric, ok := agent.Storage.Get(ID)
 
 	var newDelta int64
@@ -95,9 +111,14 @@ func (agent *Config) IncrementCounter(ID string, value int64) {
 		newDelta = value
 	}
 
-	agent.Storage.Set(ID, models.Metrics{
+	err := agent.Storage.Set(ID, models.Metrics{
 		ID:    ID,
 		MType: models.Counter,
-		Delta: &newDelta,
+		Delta: lib.IntPtr(newDelta),
 	})
+	if err != nil {
+		return fmt.Errorf("%s: Error: %s", OP, err)
+	}
+
+	return nil
 }
