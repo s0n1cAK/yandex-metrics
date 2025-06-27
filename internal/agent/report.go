@@ -7,8 +7,6 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
-const scheme = "http://"
-
 func (agent *Agent) Report() error {
 	OP := "Agent.Report"
 	var endpoint string
