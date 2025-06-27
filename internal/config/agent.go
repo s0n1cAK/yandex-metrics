@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -57,18 +58,26 @@ func (e *endpoint) String() string {
 }
 
 func (e *endpoint) Set(value string) error {
-	i := strings.LastIndex(value, ":")
-	if i == -1 {
-		return errors.New("must be in format host:port")
+	if !strings.Contains(value, "://") {
+		value = "http://" + value
 	}
 
-	portStr := value[i+1:]
-	port, err := strconv.Atoi(portStr)
+	u, err := url.Parse(value)
+	if err != nil || u.Host == "" {
+		return errors.New("invalid endpoint format, must be scheme://host:port")
+	}
+
+	hostPort := strings.Split(u.Host, ":")
+	if len(hostPort) != 2 {
+		return errors.New("endpoint must include port")
+	}
+
+	port, err := strconv.Atoi(hostPort[1])
 	if err != nil || port < 1 || port > 65535 {
 		return errors.New("invalid port number")
 	}
-	*e = endpoint(value)
 
+	*e = endpoint(value)
 	return nil
 }
 
