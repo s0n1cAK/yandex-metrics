@@ -18,7 +18,7 @@ func (agent *Agent) Report() error {
 		case models.Counter:
 			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Delta)
 		default:
-			return fmt.Errorf("Unknown type %s", metric.MType)
+			return fmt.Errorf("unknown type %s", metric.MType)
 		}
 
 		request, err := http.NewRequest(http.MethodPost, endpoint, nil)

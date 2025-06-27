@@ -15,18 +15,18 @@ const (
 )
 
 type AgentConfig struct {
-	Endpoint   Endpoint
+	Endpoint   endpoint
 	ReportTime time.Duration
 	PollTime   time.Duration
 }
 
-type Endpoint string
+type endpoint string
 
-func (e *Endpoint) String() string {
+func (e *endpoint) String() string {
 	return string(*e)
 }
 
-func (e *Endpoint) Set(value string) error {
+func (e *endpoint) Set(value string) error {
 	i := strings.LastIndex(value, ":")
 	if i == -1 {
 		return errors.New("must be in format host:port")
@@ -37,7 +37,7 @@ func (e *Endpoint) Set(value string) error {
 	if err != nil || port < 1 || port > 65535 {
 		return errors.New("invalid port number")
 	}
-	*e = Endpoint(value)
+	*e = endpoint(value)
 
 	return nil
 }

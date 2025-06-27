@@ -22,7 +22,7 @@ func (s *MemStorage) Set(key string, value models.Metrics) error {
 	}
 
 	if value.ID == "" {
-		return fmt.Errorf("Metric name is nil")
+		return fmt.Errorf("metric name is nil")
 	}
 
 	if value.MType != models.Gauge && value.MType != models.Counter {

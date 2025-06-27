@@ -26,7 +26,7 @@ func New(sAddr string, sPort int, storage storage.Storage) (*Config, error) {
 	OP := "Server.New"
 
 	if sPort <= minPort || sPort >= maxPort {
-		return nil, fmt.Errorf("%s: %v is not an valid port\n", OP, sPort)
+		return nil, fmt.Errorf("%s: %v is not an valid port", OP, sPort)
 	}
 
 	r := chi.NewRouter()

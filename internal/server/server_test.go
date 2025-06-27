@@ -299,6 +299,7 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 			srv.Router.ServeHTTP(w, req)
 
 			body, err := io.ReadAll(w.Result().Body)
+			defer w.Result().Body.Close()
 			require.NoError(t, err)
 
 			if test.want.wantErr {
@@ -348,5 +349,7 @@ func TestServerRoutes_GetMetrics(t *testing.T) {
 	srv.Router.ServeHTTP(w, req)
 
 	body, err := io.ReadAll(w.Result().Body)
+	defer w.Result().Body.Close()
+	require.NoError(t, err)
 	require.NotNil(t, body)
 }
