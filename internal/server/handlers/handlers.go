@@ -115,7 +115,7 @@ func GetMetric(s storage.Storage) http.HandlerFunc {
 		case models.Counter:
 			w.Write([]byte(strconv.FormatInt(*value.Delta, 10)))
 		case models.Gauge:
-			w.Write([]byte(strconv.FormatFloat(*value.Value, 'f', 6, 64)))
+			w.Write([]byte(strconv.FormatFloat(*value.Value, 'f', -1, 64)))
 		}
 
 	}
