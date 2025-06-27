@@ -104,15 +104,19 @@ func GetMetric(s storage.Storage) http.HandlerFunc {
 		}
 
 		// Говорим код ошибки, но без текста
-		payload, err := json.Marshal(value)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
+		// payload, err := json.Marshal(value)
+		// if err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(string(payload)))
+		switch value.MType {
+		case models.Counter:
+			w.Write([]byte(strconv.FormatInt(*value.Delta, 64)))
+		case models.Gauge:
+			w.Write([]byte(strconv.FormatFloat(*value.Value, 'f', 6, 64)))
+		}
 
 	}
 }
