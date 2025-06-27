@@ -24,3 +24,5 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+server
+agent
