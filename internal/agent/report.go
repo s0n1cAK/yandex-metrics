@@ -21,6 +21,7 @@ func (agent *Agent) Report() error {
 			return fmt.Errorf("unknown type %s", metric.MType)
 		}
 
+		// Подумать о переходе на resty, но для начала узначать в чем выгода
 		request, err := http.NewRequest(http.MethodPost, endpoint, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)

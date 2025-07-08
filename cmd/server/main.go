@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
@@ -13,7 +12,6 @@ func main() {
 	cfg := config.NewServerConfig()
 	storage := memStorage.New()
 
-	fmt.Println(cfg)
 	srv, err := server.New(cfg.Address, cfg.Port, storage)
 	if err != nil {
 		log.Fatal(err)

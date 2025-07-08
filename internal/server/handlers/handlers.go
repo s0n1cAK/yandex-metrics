@@ -23,9 +23,10 @@ func SetMetric(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
+		param := chi.URLParam(r, "value")
 		switch rMetric.MType {
 		case models.Gauge:
-			param := chi.URLParam(r, "value")
+
 			if param == "" {
 				http.Error(w, "Missing 'value' parameter", http.StatusBadRequest)
 				return
@@ -39,7 +40,6 @@ func SetMetric(s storage.Storage) http.HandlerFunc {
 
 			rMetric.Value = &val
 		case models.Counter:
-			param := chi.URLParam(r, "value")
 			if param == "" {
 				http.Error(w, "Missing 'delta' parameter", http.StatusBadRequest)
 				return
@@ -88,7 +88,7 @@ func GetMetric(s storage.Storage) http.HandlerFunc {
 		}
 
 		if rMetric.ID == "" || rMetric.MType == "" {
-			http.Error(w, "Metric name or type not specified", http.StatusNotFound)
+			http.Error(w, "Metric name or type not specified", http.StatusBadRequest)
 			return
 		}
 

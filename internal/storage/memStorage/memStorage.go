@@ -6,6 +6,7 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
+// Добавить Mutex
 type MemStorage struct {
 	values map[string]models.Metrics
 }

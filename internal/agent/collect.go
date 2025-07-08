@@ -15,6 +15,9 @@ const (
 	MetricNameRandomValue = "RandomValue"
 )
 
+// Лучше используй типизированные константы
+// Подумать как это лучше всего сделать;
+
 var runtimeMetrics = []string{
 	"Alloc",
 	"BuckHashSys",

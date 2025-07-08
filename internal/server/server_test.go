@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"strconv"
 	"testing"
 
@@ -165,17 +166,18 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 				if test.want.metric.Value != nil {
 					valueStr = strconv.FormatFloat(*test.want.metric.Value, 'f', -1, 64)
 				}
-				url = fmt.Sprintf("/update/%s/%s/%s", test.want.metric.MType, test.want.metric.ID, valueStr)
+				url = path.Join("/update", test.want.metric.MType, test.want.metric.ID, valueStr)
 
 			case models.Counter:
 				deltaStr := "null"
 				if test.want.metric.Delta != nil {
 					deltaStr = strconv.FormatInt(int64(*test.want.metric.Delta), 10)
 				}
-				url = fmt.Sprintf("/update/%s/%s/%s", test.want.metric.MType, test.want.metric.ID, deltaStr)
+
+				url = path.Join("/update", test.want.metric.MType, test.want.metric.ID, deltaStr)
 
 			default:
-				url = fmt.Sprintf("/update/%s/%s/%s", test.want.metric.MType, test.want.metric.ID, "unknown")
+				url = path.Join("/update", test.want.metric.MType, test.want.metric.ID, "unknown")
 			}
 
 			req = httptest.NewRequest(http.MethodPost, url, nil)

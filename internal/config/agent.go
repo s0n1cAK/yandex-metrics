@@ -15,6 +15,11 @@ const (
 	defaultPollTime   = time.Second * 2
 )
 
+var (
+	ErrInvalidDurationFormat = errors.New("invalid duration format")
+	ErrInvalidNumericFormat  = errors.New("invalid numeric duration format")
+)
+
 type AgentConfig struct {
 	Endpoint   endpoint
 	ReportTime customTime
@@ -37,12 +42,12 @@ func (ct *customTime) Set(value string) error {
 	if strings.HasSuffix(value, "s") {
 		duration, err = time.ParseDuration(value)
 		if err != nil {
-			return errors.New("invalid duration format '10s'")
+			return ErrInvalidDurationFormat
 		}
 	} else {
 		seconds, err := strconv.Atoi(value)
 		if err != nil {
-			return errors.New("invalid numeric duration format")
+			return ErrInvalidNumericFormat
 		}
 		duration = time.Duration(seconds) * time.Second
 	}
