@@ -3,8 +3,13 @@ package config
 import (
 	"errors"
 	"flag"
+	"os"
 	"strconv"
 	"strings"
+)
+
+var (
+	ErrInvalidAddressFormat = errors.New("need address in a form host:port")
 )
 
 type ServerConfig struct {
@@ -19,7 +24,7 @@ func (o ServerConfig) String() string {
 func (o *ServerConfig) Set(s string) error {
 	gAddress := strings.Split(s, ":")
 	if len(gAddress) < 2 {
-		return errors.New("need address in a form host:port")
+		return ErrInvalidAddressFormat
 	}
 
 	port, err := strconv.Atoi(gAddress[1])
@@ -32,14 +37,38 @@ func (o *ServerConfig) Set(s string) error {
 	return nil
 }
 
-func NewServerConfig() *ServerConfig {
+func (o *ServerConfig) ParseENV() error {
+	if env, exist := os.LookupEnv("ADDRESS"); exist {
+		gAddress := strings.Split(env, ":")
+		if len(gAddress) < 2 {
+			return ErrInvalidAddressFormat
+		}
+
+		port, err := strconv.Atoi(gAddress[1])
+		if err != nil {
+			return err
+		}
+
+		o.Address = gAddress[0]
+		o.Port = port
+		return nil
+	}
+	return nil
+}
+
+func NewServerConfig() (*ServerConfig, error) {
 	addr := &ServerConfig{
 		Address: "localhost",
 		Port:    8080,
 	}
 
+	err := addr.ParseENV()
+	if err != nil {
+		return &ServerConfig{}, err
+	}
+
 	flag.Var(addr, "a", "Server of address in format host:port")
 	flag.Parse()
 
-	return addr
+	return addr, nil
 }

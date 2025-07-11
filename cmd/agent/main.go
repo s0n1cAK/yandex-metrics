@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/agent"
@@ -9,7 +10,11 @@ import (
 )
 
 func main() {
-	cfg := config.NewAgentConfig()
+	cfg, err := config.NewAgentConfig()
+	if err != nil {
+		log.Fatal("Error while parsing env:", err)
+	}
+
 	metricsStorage := memstorage.New()
 
 	agent := agent.New(&http.Client{}, string(cfg.Endpoint), metricsStorage)

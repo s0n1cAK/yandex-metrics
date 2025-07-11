@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	cfg := config.NewServerConfig()
+	cfg, err := config.NewServerConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 	storage := memStorage.New()
 
 	srv, err := server.New(cfg.Address, cfg.Port, storage)

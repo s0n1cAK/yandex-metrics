@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/caarlos0/env/v6"
+	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 )
 
 const (
@@ -21,10 +24,31 @@ var (
 )
 
 type AgentConfig struct {
-	Endpoint   endpoint
-	ReportTime customTime
-	PollTime   customTime
+	Endpoint   endpoint   `env:"ADDRESS"`
+	ReportTime customTime `env:"REPORT_INTERVAL"`
+	PollTime   customTime `env:"POLL_INTERVAL"`
 }
+
+func formatCustomTime(value string) (customTime, error) {
+	var duration time.Duration
+	var err error
+
+	if lib.HasLetter(value) {
+		duration, err = time.ParseDuration(value)
+		if err != nil {
+			return 0, ErrInvalidDurationFormat
+		}
+	} else {
+		seconds, err := strconv.Atoi(value)
+		if err != nil {
+			return 0, ErrInvalidNumericFormat
+		}
+		duration = time.Duration(seconds) * time.Second
+	}
+
+	return customTime(duration), nil
+}
+
 type customTime time.Duration
 
 func (ct *customTime) String() string {
@@ -36,24 +60,44 @@ func (ct customTime) Duration() time.Duration {
 }
 
 func (ct *customTime) Set(value string) error {
-	var duration time.Duration
-	var err error
+	gValue, err := formatCustomTime(value)
+	if err == nil {
+		return err
+	}
+	*ct = gValue
+	return nil
+}
 
-	if strings.HasSuffix(value, "s") {
-		duration, err = time.ParseDuration(value)
-		if err != nil {
-			return ErrInvalidDurationFormat
-		}
-	} else {
-		seconds, err := strconv.Atoi(value)
-		if err != nil {
-			return ErrInvalidNumericFormat
-		}
-		duration = time.Duration(seconds) * time.Second
+func (ct *customTime) UnmarshalText(text []byte) error {
+	gValue, err := formatCustomTime(string(text[:]))
+	if err == nil {
+		return err
+	}
+	*ct = gValue
+	return nil
+}
+
+func formatEndpoint(value string) (endpoint, error) {
+	if !strings.Contains(value, "://") {
+		value = "http://" + value
 	}
 
-	*ct = customTime(duration)
-	return nil
+	u, err := url.Parse(value)
+	if err != nil || u.Host == "" {
+		return "", errors.New("invalid endpoint format, must be scheme://host:port")
+	}
+
+	hostPort := strings.Split(u.Host, ":")
+	if len(hostPort) != 2 {
+		return "", errors.New("endpoint must include port")
+	}
+
+	port, err := strconv.Atoi(hostPort[1])
+	if err != nil || port < 1 || port > 65535 {
+		return "", errors.New("invalid port number")
+	}
+
+	return endpoint(value), err
 }
 
 type endpoint string
@@ -63,34 +107,33 @@ func (e *endpoint) String() string {
 }
 
 func (e *endpoint) Set(value string) error {
-	if !strings.Contains(value, "://") {
-		value = "http://" + value
+	gValue, err := formatEndpoint(string(value[:]))
+	if err == nil {
+		return err
 	}
-
-	u, err := url.Parse(value)
-	if err != nil || u.Host == "" {
-		return errors.New("invalid endpoint format, must be scheme://host:port")
-	}
-
-	hostPort := strings.Split(u.Host, ":")
-	if len(hostPort) != 2 {
-		return errors.New("endpoint must include port")
-	}
-
-	port, err := strconv.Atoi(hostPort[1])
-	if err != nil || port < 1 || port > 65535 {
-		return errors.New("invalid port number")
-	}
-
-	*e = endpoint(value)
+	*e = gValue
 	return nil
 }
 
-func NewAgentConfig() *AgentConfig {
+func (e *endpoint) UnmarshalText(text []byte) error {
+	gValue, err := formatEndpoint(string(text[:]))
+	if err == nil {
+		return err
+	}
+	*e = gValue
+	return nil
+}
+
+func NewAgentConfig() (*AgentConfig, error) {
 	cfg := &AgentConfig{
 		Endpoint:   "http://localhost:8080",
 		ReportTime: customTime(defaultReportTime),
 		PollTime:   customTime(defaultPollTime),
+	}
+
+	err := env.Parse(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	flag.Var(&cfg.Endpoint, "a", "Server address in format scheme://host:port")
@@ -99,5 +142,5 @@ func NewAgentConfig() *AgentConfig {
 
 	flag.Parse()
 
-	return cfg
+	return cfg, nil
 }
