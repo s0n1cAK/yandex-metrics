@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -108,7 +109,8 @@ func (e *endpoint) String() string {
 
 func (e *endpoint) Set(value string) error {
 	gValue, err := formatEndpoint(string(value[:]))
-	if err == nil {
+	fmt.Println(gValue)
+	if err != nil {
 		return err
 	}
 	*e = gValue
@@ -117,7 +119,7 @@ func (e *endpoint) Set(value string) error {
 
 func (e *endpoint) UnmarshalText(text []byte) error {
 	gValue, err := formatEndpoint(string(text[:]))
-	if err == nil {
+	if err != nil {
 		return err
 	}
 	*e = gValue
