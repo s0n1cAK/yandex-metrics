@@ -2,6 +2,7 @@ package memstorage
 
 import (
 	"fmt"
+	"sync"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
@@ -9,6 +10,7 @@ import (
 // Добавить Mutex
 type MemStorage struct {
 	values map[string]models.Metrics
+	mu     sync.RWMutex
 }
 
 func New() *MemStorage {
@@ -18,6 +20,8 @@ func New() *MemStorage {
 }
 
 func (s *MemStorage) Set(key string, value models.Metrics) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if key == "" {
 		return fmt.Errorf("empty key")
 	}
@@ -35,20 +39,28 @@ func (s *MemStorage) Set(key string, value models.Metrics) error {
 }
 
 func (s *MemStorage) Get(key string) (models.Metrics, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	val, ok := s.values[key]
 	return val, ok
 }
 
 func (s *MemStorage) GetAll() map[string]models.Metrics {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.values
 }
 
 func (s *MemStorage) Clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for k := range s.values {
 		delete(s.values, k)
 	}
 }
 
 func (s *MemStorage) Delete(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.values, key)
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+	"go.uber.org/zap"
 )
 
 func (agent *Agent) Report() error {
@@ -12,6 +13,7 @@ func (agent *Agent) Report() error {
 	var endpoint string
 
 	for _, metric := range agent.Storage.GetAll() {
+
 		switch metric.MType {
 		case models.Gauge:
 			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Value)
@@ -30,6 +32,7 @@ func (agent *Agent) Report() error {
 		request.Close = true
 		request.Header.Set("Content-Type", "text/plain")
 
+		agent.Logger.Info("Sending metric", zap.String("id", metric.ID))
 		response, err := agent.Client.Do(request)
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)

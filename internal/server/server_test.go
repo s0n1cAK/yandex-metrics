@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	memStorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
@@ -19,8 +20,8 @@ func TestServerValidation_New(t *testing.T) {
 	storage := memStorage.New()
 
 	type want struct {
-		SAddr   string
-		SPort   int
+		sAddr   string
+		sPort   int
 		Storage *memStorage.MemStorage
 		wantErr bool
 	}
@@ -31,8 +32,8 @@ func TestServerValidation_New(t *testing.T) {
 		{
 			name: "Valid Test (IP)",
 			want: want{
-				SAddr:   "127.0.0.1",
-				SPort:   8080,
+				sAddr:   "127.0.0.1",
+				sPort:   8080,
 				Storage: storage,
 				wantErr: false,
 			},
@@ -40,8 +41,8 @@ func TestServerValidation_New(t *testing.T) {
 		{
 			name: "Valid Test (DNS)",
 			want: want{
-				SAddr:   "localhost",
-				SPort:   8008,
+				sAddr:   "localhost",
+				sPort:   8008,
 				Storage: storage,
 				wantErr: false,
 			},
@@ -49,8 +50,8 @@ func TestServerValidation_New(t *testing.T) {
 		{
 			name: "Invalid Port",
 			want: want{
-				SAddr:   "localhost",
-				SPort:   80080,
+				sAddr:   "localhost",
+				sPort:   80080,
 				Storage: storage,
 				wantErr: true,
 			},
@@ -58,7 +59,10 @@ func TestServerValidation_New(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := New(test.want.SAddr, test.want.SPort, test.want.Storage)
+			_, err := New(&config.ServerConfig{
+				Address: test.want.sAddr,
+				Port:    test.want.sPort,
+			}, test.want.Storage)
 
 			if test.want.wantErr {
 				require.Error(t, err)
@@ -154,7 +158,11 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			srv, err := New(test.want.sAddr, test.want.sPort, test.want.storage)
+			srv, err := New(&config.ServerConfig{
+				Address: test.want.sAddr,
+				Port:    test.want.sPort,
+			},
+				test.want.storage)
 			require.NoError(t, err)
 
 			var req *http.Request
@@ -289,7 +297,11 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			storage := memStorage.New()
-			srv, err := New("localhost", 8080, storage)
+			srv, err := New(&config.ServerConfig{
+				Address: "localhost",
+				Port:    8080,
+			},
+				storage)
 			require.NoError(t, err)
 
 			storage.Set(test.store.ID, test.store)
@@ -331,7 +343,11 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 
 func TestServerRoutes_GetMetrics(t *testing.T) {
 	s := memStorage.New()
-	srv, err := New("localhost", 8080, s)
+	srv, err := New(&config.ServerConfig{
+		Address: "localhost",
+		Port:    8080,
+	},
+		s)
 	require.NoError(t, err)
 
 	testMetric := models.Metrics{

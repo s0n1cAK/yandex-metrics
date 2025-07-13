@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
+	"go.uber.org/zap"
 )
 
 const (
@@ -25,9 +27,11 @@ var (
 )
 
 type AgentConfig struct {
+	Client     *http.Client
 	Endpoint   endpoint   `env:"ADDRESS"`
 	ReportTime customTime `env:"REPORT_INTERVAL"`
 	PollTime   customTime `env:"POLL_INTERVAL"`
+	Logger     *zap.Logger
 }
 
 func formatCustomTime(value string) (customTime, error) {
@@ -126,11 +130,13 @@ func (e *endpoint) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func NewAgentConfig() (*AgentConfig, error) {
+func NewAgentConfig(log *zap.Logger) (*AgentConfig, error) {
 	cfg := &AgentConfig{
+		Client:     &http.Client{},
 		Endpoint:   "http://localhost:8080",
 		ReportTime: customTime(defaultReportTime),
 		PollTime:   customTime(defaultPollTime),
+		Logger:     log,
 	}
 
 	err := env.Parse(cfg)

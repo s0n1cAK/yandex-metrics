@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -15,6 +17,7 @@ var (
 type ServerConfig struct {
 	Address string
 	Port    int
+	Logger  *zap.Logger
 }
 
 func (o ServerConfig) String() string {
@@ -56,10 +59,11 @@ func (o *ServerConfig) ParseENV() error {
 	return nil
 }
 
-func NewServerConfig() (*ServerConfig, error) {
+func NewServerConfig(log *zap.Logger) (*ServerConfig, error) {
 	addr := &ServerConfig{
 		Address: "localhost",
 		Port:    8080,
+		Logger:  log,
 	}
 
 	err := addr.ParseENV()

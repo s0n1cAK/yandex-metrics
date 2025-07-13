@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server/handlers"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 )
@@ -16,21 +18,23 @@ const (
 	maxPort = 65535
 )
 
-type Config struct {
-	sAddr  string
-	sPort  int
-	Router *chi.Mux
-}
+type (
+	Server struct {
+		sAddr  string
+		sPort  int
+		Router *chi.Mux
+	}
+)
 
-func New(sAddr string, sPort int, storage storage.Storage) (*Config, error) {
+func New(cfg *config.ServerConfig, storage storage.Storage) (*Server, error) {
 	OP := "Server.New"
 
-	if sPort <= minPort || sPort >= maxPort {
-		return nil, fmt.Errorf("%s: %v is not an valid port", OP, sPort)
+	if cfg.Port <= minPort || cfg.Port >= maxPort {
+		return nil, fmt.Errorf("%s: %v is not an valid port", OP, cfg.Port)
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(logger.LoggingMiddleware(cfg.Logger))
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
@@ -39,14 +43,14 @@ func New(sAddr string, sPort int, storage storage.Storage) (*Config, error) {
 	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
 	r.Get("/", handlers.GetMetrics(storage))
 
-	return &Config{
-		sAddr:  sAddr,
-		sPort:  sPort,
+	return &Server{
+		sAddr:  cfg.Address,
+		sPort:  cfg.Port,
 		Router: r,
 	}, nil
 }
 
-func (c *Config) Start() error {
+func (c *Server) Start() error {
 	OP := "Server.Start"
 
 	err := http.ListenAndServe(
