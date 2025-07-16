@@ -31,7 +31,7 @@ func main() {
 	log.Info("Agent started",
 		zap.String("endpoint", cfg.Endpoint.String()),
 		zap.Duration("poll_interval", cfg.PollTime.Duration()),
-		zap.Duration("_interval", cfg.PollTime.Duration()),
+		zap.Duration("repotr_interval", cfg.PollTime.Duration()),
 	)
 	agent.Run(cfg.PollTime.Duration(), cfg.ReportTime.Duration())
 }

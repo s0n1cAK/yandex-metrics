@@ -34,6 +34,11 @@ func (s *MemStorage) Set(key string, value models.Metrics) error {
 		return fmt.Errorf("%s unsupported type of metric", value.MType)
 	}
 
+	sValue, ok := s.values[key]
+	if ok && sValue.MType != value.MType {
+		return fmt.Errorf("%s already in storage with type %s", sValue.ID, sValue.MType)
+	}
+
 	s.values[key] = value
 	return nil
 }

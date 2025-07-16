@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -10,27 +12,26 @@ import (
 
 func (agent *Agent) Report() error {
 	OP := "Agent.Report"
-	var endpoint string
-
 	for _, metric := range agent.Storage.GetAll() {
 
-		switch metric.MType {
-		case models.Gauge:
-			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Value)
-		case models.Counter:
-			endpoint = fmt.Sprintf("%s/update/%s/%s/%v", agent.Server, metric.MType, metric.ID, *metric.Delta)
-		default:
+		endpoint := fmt.Sprintf("%s/update", agent.Server)
+		if metric.MType != models.Gauge && metric.MType != models.Counter {
 			return fmt.Errorf("unknown type %s", metric.MType)
 		}
 
+		payload, err := json.MarshalIndent(metric, "", "\t")
+		if err != nil {
+			return fmt.Errorf("%s: %s", OP, err)
+		}
+
 		// Подумать о переходе на resty, но для начала узначать в чем выгода
-		request, err := http.NewRequest(http.MethodPost, endpoint, nil)
+		request, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(payload))
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
 
 		request.Close = true
-		request.Header.Set("Content-Type", "text/plain")
+		request.Header.Set("Content-Type", "application/json")
 
 		agent.Logger.Info("Sending metric", zap.String("id", metric.ID))
 		response, err := agent.Client.Do(request)

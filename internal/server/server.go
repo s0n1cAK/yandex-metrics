@@ -39,9 +39,13 @@ func New(cfg *config.ServerConfig, storage storage.Storage) (*Server, error) {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetric(storage))
-	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
 	r.Get("/", handlers.GetMetrics(storage))
+	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
+
+	r.Post("/value/", handlers.GetMetricJSON(storage))
+	r.Post("/update", handlers.SetMetricJSON(storage))
+	r.Post("/update/", handlers.SetMetricJSON(storage))
+	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage))
 
 	return &Server{
 		sAddr:  cfg.Address,
