@@ -57,7 +57,6 @@ func (s *MemStorage) GetAll() map[string]models.Metrics {
 }
 
 func (s *MemStorage) SetAll(metrics []models.Metrics) {
-	fmt.Println(metrics)
 	for _, value := range metrics {
 		err := s.Set(value.ID, value)
 		if err != nil {
