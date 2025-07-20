@@ -117,17 +117,21 @@ func (c *Server) Start() error {
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
-		ticker := time.NewTicker(c.Config.StoreInterval.Duration())
-		go func() {
-			for range ticker.C {
-				err := file.WriteMetrics(c.Storage.GetAll())
-				if err != nil {
-					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
-				} else {
-					c.Config.Logger.Info("Метрики сохранены в файл")
+
+		if c.Config.StoreInterval > 0 {
+			ticker := time.NewTicker(c.Config.StoreInterval.Duration())
+
+			go func() {
+				for range ticker.C {
+					err := file.WriteMetrics(c.Storage.GetAll())
+					if err != nil {
+						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+					} else {
+						c.Config.Logger.Info("Метрики сохранены в файл (по таймеру)")
+					}
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	err := http.ListenAndServe(
