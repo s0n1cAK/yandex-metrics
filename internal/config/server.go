@@ -3,11 +3,17 @@ package config
 import (
 	"errors"
 	"flag"
-	"os"
-	"strconv"
-	"strings"
+	"time"
 
+	"github.com/caarlos0/env/v11"
 	"go.uber.org/zap"
+)
+
+const (
+	defaultServerEndpoint = "http://localhost:8080"
+	defaultStoreInterval  = time.Second * 300
+	defaultFile           = "Metrics.data"
+	defaultRestore        = true
 )
 
 var (
@@ -15,64 +21,31 @@ var (
 )
 
 type ServerConfig struct {
-	Address string
-	Port    int
-	Logger  *zap.Logger
-}
-
-func (o ServerConfig) String() string {
-	return o.Address + ":" + strconv.Itoa(o.Port)
-}
-
-func (o *ServerConfig) Set(s string) error {
-	gAddress := strings.Split(s, ":")
-	if len(gAddress) < 2 {
-		return ErrInvalidAddressFormat
-	}
-
-	port, err := strconv.Atoi(gAddress[1])
-	if err != nil {
-		return err
-	}
-
-	o.Address = gAddress[0]
-	o.Port = port
-	return nil
-}
-
-func (o *ServerConfig) ParseENV() error {
-	if env, exist := os.LookupEnv("ADDRESS"); exist {
-		gAddress := strings.Split(env, ":")
-		if len(gAddress) < 2 {
-			return ErrInvalidAddressFormat
-		}
-
-		port, err := strconv.Atoi(gAddress[1])
-		if err != nil {
-			return err
-		}
-
-		o.Address = gAddress[0]
-		o.Port = port
-		return nil
-	}
-	return nil
+	Endpoint      Endpoint   `env:"ADDRESS"`
+	StoreInterval customTime `env:"STORE_INTERVAL"`
+	File          string     `env:"FILE_STORAGE_PATH"`
+	Restore       bool       `env:"RESTORE"`
+	Logger        *zap.Logger
 }
 
 func NewServerConfig(log *zap.Logger) (*ServerConfig, error) {
-	addr := &ServerConfig{
-		Address: "localhost",
-		Port:    8080,
-		Logger:  log,
+	cfg := &ServerConfig{
+		Endpoint:      defaultServerEndpoint,
+		StoreInterval: customTime(defaultStoreInterval),
+		File:          defaultFile,
+		Restore:       defaultRestore,
+		Logger:        log,
 	}
 
-	err := addr.ParseENV()
-	if err != nil {
-		return &ServerConfig{}, err
+	if err := env.Parse(cfg); err != nil {
+		return nil, err
 	}
 
-	flag.Var(addr, "a", "Server of address in format host:port")
+	flag.Var(&cfg.Endpoint, "a", "Address server")
+	flag.Var(&cfg.StoreInterval, "i", "Frequency of saving metrics to file")
+	flag.StringVar(&cfg.File, "f", cfg.File, "File for metrics")
+	flag.BoolVar(&cfg.Restore, "r", cfg.Restore, "Restore metrics from file")
 	flag.Parse()
 
-	return addr, nil
+	return cfg, nil
 }

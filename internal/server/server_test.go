@@ -20,10 +20,9 @@ func TestServerValidation_New(t *testing.T) {
 	storage := memStorage.New()
 
 	type want struct {
-		sAddr   string
-		sPort   int
-		Storage *memStorage.MemStorage
-		wantErr bool
+		Endpoint config.Endpoint
+		Storage  *memStorage.MemStorage
+		wantErr  bool
 	}
 	tests := []struct {
 		name string
@@ -32,36 +31,32 @@ func TestServerValidation_New(t *testing.T) {
 		{
 			name: "Valid Test (IP)",
 			want: want{
-				sAddr:   "127.0.0.1",
-				sPort:   8080,
-				Storage: storage,
-				wantErr: false,
+				Endpoint: "http://127.0.0.1:8080",
+				Storage:  storage,
+				wantErr:  false,
 			},
 		},
 		{
 			name: "Valid Test (DNS)",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8008,
-				Storage: storage,
-				wantErr: false,
+				Endpoint: "http://localhost:8080",
+				Storage:  storage,
+				wantErr:  false,
 			},
 		},
 		{
 			name: "Invalid Port",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   80080,
-				Storage: storage,
-				wantErr: true,
+				Endpoint: "http://127.0.0.1:80880",
+				Storage:  storage,
+				wantErr:  true,
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := New(&config.ServerConfig{
-				Address: test.want.sAddr,
-				Port:    test.want.sPort,
+				Endpoint: test.want.Endpoint,
 			}, test.want.Storage)
 
 			if test.want.wantErr {
@@ -77,11 +72,10 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 	storage := memStorage.New()
 
 	type want struct {
-		sAddr   string
-		sPort   int
-		storage *memStorage.MemStorage
-		metric  models.Metrics
-		wantErr bool
+		Endpoint string
+		storage  *memStorage.MemStorage
+		metric   models.Metrics
+		wantErr  bool
 	}
 	tests := []struct {
 		name string
@@ -90,9 +84,8 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 		{
 			name: "Valid Request",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8080,
-				storage: storage,
+				Endpoint: "http://localhost:8080",
+				storage:  storage,
 				metric: models.Metrics{
 					ID:    "Test",
 					MType: models.Gauge,
@@ -104,9 +97,8 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 		{
 			name: "Invalid Request (Counter as Value)",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8080,
-				storage: storage,
+				Endpoint: "http://localhost:8080",
+				storage:  storage,
 				metric: models.Metrics{
 					ID:    "Test",
 					MType: models.Counter,
@@ -118,9 +110,8 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 		{
 			name: "Invalid Request (Gauge as Delta)",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8080,
-				storage: storage,
+				Endpoint: "http://localhost:8080",
+				storage:  storage,
 				metric: models.Metrics{
 					ID:    "Test",
 					MType: models.Gauge,
@@ -132,9 +123,8 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 		{
 			name: "Invalid Request (Value and Delta is Empty)",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8080,
-				storage: storage,
+				Endpoint: "http://localhost:8080",
+				storage:  storage,
 				metric: models.Metrics{
 					ID:    "Test",
 					MType: models.Counter,
@@ -145,9 +135,8 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 		{
 			name: "Invalid Request (Unknown type of metric)",
 			want: want{
-				sAddr:   "localhost",
-				sPort:   8080,
-				storage: storage,
+				Endpoint: "http://localhost:8080",
+				storage:  storage,
 				metric: models.Metrics{
 					ID:    "Test",
 					MType: "Unknown",
@@ -159,8 +148,7 @@ func TestServerRoutes_SetMetric(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			srv, err := New(&config.ServerConfig{
-				Address: test.want.sAddr,
-				Port:    test.want.sPort,
+				Endpoint: "http://localhost:8080",
 			},
 				test.want.storage)
 			require.NoError(t, err)
@@ -298,8 +286,7 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			storage := memStorage.New()
 			srv, err := New(&config.ServerConfig{
-				Address: "localhost",
-				Port:    8080,
+				Endpoint: "http://localhost:8080",
 			},
 				storage)
 			require.NoError(t, err)
@@ -344,8 +331,7 @@ func TestServerRoutes_GetMetric(t *testing.T) {
 func TestServerRoutes_GetMetrics(t *testing.T) {
 	s := memStorage.New()
 	srv, err := New(&config.ServerConfig{
-		Address: "localhost",
-		Port:    8080,
+		Endpoint: "http://localhost:8080",
 	},
 		s)
 	require.NoError(t, err)

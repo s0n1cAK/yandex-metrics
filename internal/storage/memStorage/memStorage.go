@@ -56,6 +56,16 @@ func (s *MemStorage) GetAll() map[string]models.Metrics {
 	return s.values
 }
 
+func (s *MemStorage) SetAll(metrics []models.Metrics) {
+	fmt.Println(metrics)
+	for _, value := range metrics {
+		err := s.Set(value.ID, value)
+		if err != nil {
+			fmt.Printf("ошибка при Set: %v\n", err)
+		}
+	}
+}
+
 func (s *MemStorage) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

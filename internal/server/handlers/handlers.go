@@ -8,10 +8,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
-	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 )
 
-func SetMetricURL(s storage.Storage) http.HandlerFunc {
+type Storage interface {
+	Set(key string, value models.Metrics) error
+	Get(key string) (models.Metrics, bool)
+	GetAll() map[string]models.Metrics
+}
+
+func SetMetricURL(s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		rMetric := models.Metrics{
@@ -83,7 +88,7 @@ func SetMetricURL(s storage.Storage) http.HandlerFunc {
 	}
 }
 
-func SetMetricJSON(s storage.Storage) http.HandlerFunc {
+func SetMetricJSON(s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		bodyBytes, err := io.ReadAll(r.Body)
@@ -144,7 +149,7 @@ func SetMetricJSON(s storage.Storage) http.HandlerFunc {
 	}
 }
 
-func GetMetricJSON(s storage.Storage) http.HandlerFunc {
+func GetMetricJSON(s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		bodyBytes, err := io.ReadAll(r.Body)
@@ -186,7 +191,7 @@ func GetMetricJSON(s storage.Storage) http.HandlerFunc {
 	}
 }
 
-func GetMetric(s storage.Storage) http.HandlerFunc {
+func GetMetric(s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		rMetric := models.Metrics{
@@ -228,7 +233,7 @@ func GetMetric(s storage.Storage) http.HandlerFunc {
 	}
 }
 
-func GetMetrics(s storage.Storage) http.HandlerFunc {
+func GetMetrics(s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metrics []string
 
@@ -242,7 +247,7 @@ func GetMetrics(s storage.Storage) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Add("Content-Type", "application/json")
+		w.Header().Add("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(string(payload)))
 	}

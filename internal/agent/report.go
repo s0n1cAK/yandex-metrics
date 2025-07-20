@@ -2,8 +2,10 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
@@ -24,24 +26,42 @@ func (agent *Agent) Report() error {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
 
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+
+		_, err = gz.Write(payload)
+		if err != nil {
+			return fmt.Errorf("%s: %s", OP, err)
+		}
+		if err := gz.Close(); err != nil {
+			return fmt.Errorf("%s: %s", OP, err)
+		}
+
 		// Подумать о переходе на resty, но для начала узначать в чем выгода
-		request, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(payload))
+		request, err := http.NewRequest(http.MethodPost, endpoint, &buf)
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
 
 		request.Close = true
+		request.Header.Set("Content-Encoding", "gzip")
 		request.Header.Set("Content-Type", "application/json")
 
 		agent.Logger.Info("Sending metric", zap.String("id", metric.ID))
+
 		response, err := agent.Client.Do(request)
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
-		if response.StatusCode != http.StatusOK {
-			return fmt.Errorf("%s: bad status: %s", OP, response.Status)
+		if err := response.Body.Close(); err != nil {
+			return fmt.Errorf("%s: %s", OP, err)
 		}
-		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			return fmt.Errorf("%s: bad status: %s; body: %s", OP, response.Status, string(body))
+		}
+
 	}
 
 	agent.Storage.Clear()
