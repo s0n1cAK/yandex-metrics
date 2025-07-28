@@ -215,12 +215,6 @@ func GetMetric(s Storage) http.HandlerFunc {
 			return
 		}
 
-		// Говорим код ошибки, но без текста
-		// payload, err := json.Marshal(value)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		switch value.MType {

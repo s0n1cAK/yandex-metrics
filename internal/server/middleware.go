@@ -130,24 +130,19 @@ func gzipCompession() func(http.Handler) http.Handler {
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 			supportsGzip := strings.Contains(acceptEncoding, "gzip")
 			if supportsGzip {
-				// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 				cw := newCompressWriter(w)
-				// меняем оригинальный http.ResponseWriter на новый
 				ow = cw
-				// не забываем отправить клиенту все сжатые данные после завершения middleware
 				defer cw.Close()
 			}
 
 			contentEncoding := r.Header.Get("Content-Encoding")
 			sendsGzip := strings.Contains(contentEncoding, "gzip")
 			if sendsGzip {
-				// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 				cr, err := newCompressReader(r.Body)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				// меняем тело запроса на новое
 				r.Body = cr
 				defer cr.Close()
 			}
