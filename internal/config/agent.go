@@ -50,10 +50,9 @@ func NewAgentConfigWithFlags(fs *flag.FlagSet, args []string, log *zap.Logger) (
 	fs.Var(&cfg.ReportTime, "r", "Frequency of sending metrics to the server")
 	fs.Var(&cfg.PollTime, "p", "Frequency of polling metrics from the package")
 
-	if err := env.Parse(cfg); err != nil {
+	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
-
 	return cfg, nil
 }
 
