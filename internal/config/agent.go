@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -19,6 +21,8 @@ const (
 var (
 	ErrInvalidDurationFormat = errors.New("invalid duration format")
 	ErrInvalidNumericFormat  = errors.New("invalid numeric duration format")
+
+	AgentFlagInit sync.Once
 )
 
 type AgentConfig struct {
@@ -29,7 +33,7 @@ type AgentConfig struct {
 	Logger     *zap.Logger
 }
 
-func NewAgentConfig(log *zap.Logger) (*AgentConfig, error) {
+func NewAgentConfigWithFlags(fs *flag.FlagSet, args []string, log *zap.Logger) (*AgentConfig, error) {
 	cfg := &AgentConfig{
 		Client:     &http.Client{},
 		Endpoint:   defaultAgentEndpoint,
@@ -42,11 +46,17 @@ func NewAgentConfig(log *zap.Logger) (*AgentConfig, error) {
 		return nil, err
 	}
 
-	flag.Var(&cfg.Endpoint, "a", "Server address in format scheme://host:port")
-	flag.Var(&cfg.ReportTime, "r", "Frequency of sending metrics to the server")
-	flag.Var(&cfg.PollTime, "p", "Frequency of polling metrics from the package")
+	fs.Var(&cfg.Endpoint, "a", "Server address in format scheme://host:port")
+	fs.Var(&cfg.ReportTime, "r", "Frequency of sending metrics to the server")
+	fs.Var(&cfg.PollTime, "p", "Frequency of polling metrics from the package")
 
-	flag.Parse()
+	if err := env.Parse(cfg); err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
+}
+
+func NewAgentConfig(log *zap.Logger) (*AgentConfig, error) {
+	return NewAgentConfigWithFlags(flag.CommandLine, os.Args[1:], log)
 }

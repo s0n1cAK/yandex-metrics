@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"flag"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -18,6 +20,8 @@ const (
 
 var (
 	ErrInvalidAddressFormat = errors.New("need address in a form host:port")
+
+	ServerFlagInit sync.Once
 )
 
 type ServerConfig struct {
@@ -28,7 +32,7 @@ type ServerConfig struct {
 	Logger        *zap.Logger
 }
 
-func NewServerConfig(log *zap.Logger) (*ServerConfig, error) {
+func NewServerConfigWithFlags(fs *flag.FlagSet, args []string, log *zap.Logger) (*ServerConfig, error) {
 	cfg := &ServerConfig{
 		Endpoint:      defaultServerEndpoint,
 		StoreInterval: customTime(defaultStoreInterval),
@@ -37,15 +41,22 @@ func NewServerConfig(log *zap.Logger) (*ServerConfig, error) {
 		Logger:        log,
 	}
 
+	fs.Var(&cfg.Endpoint, "a", "Address server")
+	fs.Var(&cfg.StoreInterval, "i", "Store interval")
+	fs.StringVar(&cfg.File, "f", cfg.File, "Storage file")
+	fs.BoolVar(&cfg.Restore, "r", cfg.Restore, "Restore from file")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
 	if err := env.Parse(cfg); err != nil {
 		return nil, err
 	}
 
-	flag.Var(&cfg.Endpoint, "a", "Address server")
-	flag.Var(&cfg.StoreInterval, "i", "Frequency of saving metrics to file")
-	flag.StringVar(&cfg.File, "f", cfg.File, "File for metrics")
-	flag.BoolVar(&cfg.Restore, "r", cfg.Restore, "Restore metrics from file")
-	flag.Parse()
-
 	return cfg, nil
+}
+
+func NewServerConfig(log *zap.Logger) (*ServerConfig, error) {
+	return NewServerConfigWithFlags(flag.CommandLine, os.Args[1:], log)
 }

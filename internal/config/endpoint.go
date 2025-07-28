@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -39,7 +38,6 @@ func (e *Endpoint) String() string {
 
 func (e *Endpoint) Set(value string) error {
 	gValue, err := formatEndpoint(string(value[:]))
-	fmt.Println(gValue)
 	if err != nil {
 		return err
 	}
