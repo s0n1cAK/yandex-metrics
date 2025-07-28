@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
-	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"github.com/s0n1cAK/yandex-metrics/internal/server/handlers"
+	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
 	"go.uber.org/zap"
 )
@@ -22,22 +22,15 @@ const (
 	maxPort = 65535
 )
 
-type Storage interface {
-	Set(key string, value models.Metrics) error
-	Get(key string) (models.Metrics, bool)
-	SetAll([]models.Metrics)
-	GetAll() map[string]models.Metrics
-}
-
 type Server struct {
 	Address string
 	Port    int
 	Router  *chi.Mux
 	Config  *config.ServerConfig
-	Storage Storage
+	Storage storage.BasicStorage
 }
 
-func New(cfg *config.ServerConfig, storage Storage) (*Server, error) {
+func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error) {
 	var err error
 
 	OP := "Server.New"
@@ -86,17 +79,18 @@ func New(cfg *config.ServerConfig, storage Storage) (*Server, error) {
 	}, nil
 }
 
-func (c *Server) Start() error {
-	OP := "Server.Start"
-
+func (c *Server) logStartupInfo() {
 	c.Config.Logger.Info("Starting server",
 		zap.String("Address", c.Address),
 		zap.Int("Port", c.Port),
 		zap.String("File", c.Config.File),
 		zap.Bool("Restore", c.Config.Restore),
 	)
+}
 
-	// Read metrics from file
+func (c *Server) restoreMetricsFromFile() error {
+	OP := "Server.Start.restoreMetricsFromFile"
+
 	if c.Config.Restore {
 		file, err := filestorage.NewConsumer(c.Config.File)
 		if err != nil {
@@ -111,6 +105,11 @@ func (c *Server) Start() error {
 
 		c.Storage.SetAll(data)
 	}
+	return nil
+}
+
+func (c *Server) scheduleFilePersistence() error {
+	OP := "Server.Start.writeMetricsToFile"
 
 	if c.Config.StoreInterval > 0 {
 		file, err := filestorage.NewProducer(c.Config.File, c.Config.StoreInterval.Duration())
@@ -133,12 +132,29 @@ func (c *Server) Start() error {
 			}()
 		}
 	}
+	return nil
+}
 
-	err := http.ListenAndServe(
+func (c *Server) Start() error {
+	OP := "Server.Start"
+
+	c.logStartupInfo()
+
+	// Read metrics from file
+	err := c.restoreMetricsFromFile()
+	if err != nil {
+		return err
+	}
+
+	err = c.scheduleFilePersistence()
+	if err != nil {
+		return err
+	}
+
+	err = http.ListenAndServe(
 		fmt.Sprintf("%s:%v", c.Address, c.Port),
 		c.Router,
 	)
-
 	if err != nil {
 		return fmt.Errorf("%s: %s", OP, err)
 	}

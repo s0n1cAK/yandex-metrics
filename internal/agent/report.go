@@ -33,9 +33,7 @@ func (agent *Agent) Report() error {
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
-		if err := gz.Close(); err != nil {
-			return fmt.Errorf("%s: %s", OP, err)
-		}
+		defer gz.Close()
 
 		// Подумать о переходе на resty, но для начала узначать в чем выгода
 		request, err := http.NewRequest(http.MethodPost, endpoint, &buf)
