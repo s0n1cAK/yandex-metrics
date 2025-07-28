@@ -33,7 +33,10 @@ func (agent *Agent) Report() error {
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
-		defer gz.Close()
+
+		if err := gz.Close(); err != nil {
+			return fmt.Errorf("%s: %s", OP, err)
+		}
 
 		// Подумать о переходе на resty, но для начала узначать в чем выгода
 		request, err := http.NewRequest(http.MethodPost, endpoint, &buf)
@@ -45,7 +48,12 @@ func (agent *Agent) Report() error {
 		request.Header.Set("Content-Encoding", "gzip")
 		request.Header.Set("Content-Type", "application/json")
 
-		agent.Logger.Info("Sending metric", zap.String("id", metric.ID))
+		if metric.Delta != nil {
+			agent.Logger.Info("Sending metric", zap.String("id", metric.ID), zap.Int64("Delta", *metric.Delta))
+		}
+		if metric.Value != nil {
+			agent.Logger.Info("Sending metric", zap.String("id", metric.ID), zap.Float64("Value", *metric.Value))
+		}
 
 		response, err := agent.Client.Do(request)
 		if err != nil {
@@ -60,8 +68,9 @@ func (agent *Agent) Report() error {
 			return fmt.Errorf("%s: bad status: %s; body: %s", OP, response.Status, string(body))
 		}
 
+		if metric.MType == models.Gauge {
+			agent.Storage.Delete(metric.ID)
+		}
 	}
-
-	agent.Storage.Clear()
 	return nil
 }

@@ -1,12 +1,17 @@
 package server
 
 import (
+	"bytes"
 	"compress/gzip"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
 	"go.uber.org/zap"
 )
 
@@ -151,5 +156,30 @@ func gzipCompession() func(http.Handler) http.Handler {
 
 		}
 		return http.HandlerFunc(compressFn)
+	}
+}
+
+func writeMetrics(p *filestorage.Producer) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "unable to read body", http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+
+			var metric models.Metrics
+			if err := json.Unmarshal(body, &metric); err != nil {
+				http.Error(w, "invalid JSON", http.StatusBadRequest)
+				return
+			}
+
+			h.ServeHTTP(w, r)
+
+			if err := p.WriteMetric(metric); err != nil {
+				fmt.Printf("failed to write metric: %v\n", err)
+			}
+		})
 	}
 }

@@ -57,6 +57,27 @@ func (p *Producer) WriteMetrics(metrics map[string]models.Metrics) error {
 	return p.writer.Flush()
 }
 
+func (p *Producer) WriteMetric(metric models.Metrics) error {
+	consumer, err := NewConsumer(p.file.Name())
+	if err != nil {
+		return err
+	}
+
+	oldMetrics, err := consumer.ReadFile()
+	if err != nil {
+		return err
+	}
+
+	storageMap := make(map[string]models.Metrics, len(oldMetrics))
+	for _, m := range oldMetrics {
+		storageMap[m.ID] = m
+	}
+
+	storageMap[metric.ID] = metric
+
+	return p.WriteMetrics(storageMap)
+}
+
 func NewConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {

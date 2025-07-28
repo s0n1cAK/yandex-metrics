@@ -23,11 +23,13 @@ const (
 )
 
 type Server struct {
-	Address string
-	Port    int
-	Router  *chi.Mux
-	Config  *config.ServerConfig
-	Storage storage.BasicStorage
+	Address  string
+	Port     int
+	Router   *chi.Mux
+	Config   *config.ServerConfig
+	Storage  storage.BasicStorage
+	Consumer *filestorage.Consumer
+	Producer *filestorage.Producer
 }
 
 func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error) {
@@ -54,12 +56,25 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 		return nil, fmt.Errorf("%s: %v is not an valid port", OP, post)
 	}
 
+	consumer, err := filestorage.NewConsumer(cfg.File)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", OP, err)
+	}
+
+	producer, err := filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", OP, err)
+	}
+
 	r := chi.NewRouter()
 	r.Use(Logging(cfg.Logger))
 	r.Use(gzipCompession())
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	if cfg.StoreInterval == 0 {
+		r.Use(writeMetrics(producer))
+	}
 
 	r.Get("/", handlers.GetMetrics(storage))
 	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
@@ -71,11 +86,13 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage))
 
 	return &Server{
-		Address: domain,
-		Port:    post,
-		Router:  r,
-		Config:  cfg,
-		Storage: storage,
+		Address:  domain,
+		Port:     post,
+		Router:   r,
+		Config:   cfg,
+		Storage:  storage,
+		Consumer: consumer,
+		Producer: producer,
 	}, nil
 }
 
@@ -92,13 +109,9 @@ func (c *Server) restoreMetricsFromFile() error {
 	OP := "Server.Start.restoreMetricsFromFile"
 
 	if c.Config.Restore {
-		file, err := filestorage.NewConsumer(c.Config.File)
-		if err != nil {
-			return fmt.Errorf("%s: %s", OP, err)
-		}
-		defer file.Close()
+		defer c.Consumer.Close()
 
-		data, err := file.ReadFile()
+		data, err := c.Consumer.ReadFile()
 		if err != nil {
 			return fmt.Errorf("%s: %s", OP, err)
 		}
@@ -109,20 +122,13 @@ func (c *Server) restoreMetricsFromFile() error {
 }
 
 func (c *Server) scheduleFilePersistence() error {
-	OP := "Server.Start.writeMetricsToFile"
-
 	if c.Config.StoreInterval > 0 {
-		file, err := filestorage.NewProducer(c.Config.File, c.Config.StoreInterval.Duration())
-		if err != nil {
-			return fmt.Errorf("%s: %s", OP, err)
-		}
-
 		if c.Config.StoreInterval > 0 {
 			ticker := time.NewTicker(c.Config.StoreInterval.Duration())
 
 			go func() {
 				for range ticker.C {
-					err := file.WriteMetrics(c.Storage.GetAll())
+					err := c.Producer.WriteMetrics(c.Storage.GetAll())
 					if err != nil {
 						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
 					} else {
@@ -151,12 +157,12 @@ func (c *Server) Start() error {
 		return err
 	}
 
-	err = http.ListenAndServe(
+	if err = http.ListenAndServe(
 		fmt.Sprintf("%s:%v", c.Address, c.Port),
 		c.Router,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
+
 	return nil
 }
