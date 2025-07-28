@@ -7,7 +7,20 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
-// Добавить Mutex
+func deepCopy(metrics models.Metrics) models.Metrics {
+	clone := metrics
+	if metrics.Delta != nil {
+		d := *metrics.Delta
+		clone.Delta = &d
+	}
+	if metrics.Value != nil {
+		v := *metrics.Value
+		clone.Value = &v
+	}
+	return clone
+
+}
+
 type MemStorage struct {
 	values map[string]models.Metrics
 	mu     sync.RWMutex
@@ -47,13 +60,19 @@ func (s *MemStorage) Get(key string) (models.Metrics, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.values[key]
-	return val, ok
+	return deepCopy(val), ok
 }
 
 func (s *MemStorage) GetAll() map[string]models.Metrics {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.values
+
+	metrics := make(map[string]models.Metrics, len(s.values))
+
+	for name, data := range s.values {
+		metrics[name] = deepCopy(data)
+	}
+	return metrics
 }
 
 func (s *MemStorage) SetAll(metrics []models.Metrics) {
