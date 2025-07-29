@@ -5,13 +5,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAgent_New(t *testing.T) {
-	agent := New(&http.Client{}, "localhost:8080", memstorage.New())
+	logger, err := logger.NewLogger()
+	agent := New(config.AgentConfig{
+		Client:   &http.Client{},
+		Endpoint: "localhost:8080",
+		Logger:   logger,
+	}, memstorage.New())
 	require.NotNil(t, agent)
+	require.NoError(t, err)
 }
 
 func TestAgent_Run(t *testing.T) {

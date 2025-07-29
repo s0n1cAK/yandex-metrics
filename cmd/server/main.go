@@ -1,26 +1,39 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
 	memStorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
+	"go.uber.org/zap"
 )
 
 func main() {
-	cfg := config.NewServerConfig()
-	storage := memStorage.New()
-
-	srv, err := server.New(cfg.Address, cfg.Port, storage)
+	log, err := logger.NewLogger()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "failed to init logger: %s \n", err)
+		os.Exit(1)
 	}
 
-	log.Printf("Starting server on %s:%v", cfg.Address, cfg.Port)
+	cfg, err := config.NewServerConfig(log)
+	if err != nil {
+		log.Fatal("failed to create server config", zap.Error(err))
+	}
+	defer cfg.Logger.Sync()
+
+	storage := memStorage.New()
+
+	srv, err := server.New(cfg, storage)
+	if err != nil {
+		log.Fatal("failed to create server", zap.Error(err))
+	}
+
 	err = srv.Start()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error while starting server", zap.Error(err))
 	}
 
 }

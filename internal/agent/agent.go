@@ -2,11 +2,12 @@ package agent
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+	"go.uber.org/zap"
 )
 
 const fiveMinutes = time.Second * 300
@@ -24,13 +25,15 @@ type Agent struct {
 	LastReportTime time.Duration
 	Client         *http.Client
 	Server         string
+	Logger         *zap.Logger
 }
 
-func New(client *http.Client, server string, storage Storage) *Agent {
+func New(cfg config.AgentConfig, storage Storage) *Agent {
 	return &Agent{
-		Client:  client,
-		Server:  server,
+		Client:  cfg.Client,
+		Server:  cfg.Endpoint.String(),
 		Storage: storage,
+		Logger:  cfg.Logger,
 	}
 }
 
@@ -61,19 +64,19 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 		select {
 		case <-pollTicker.C:
 			if err := agent.CollectRuntime(); err != nil {
-				log.Printf("CollectRuntime error: %s", err)
+				agent.Logger.Error("CollectRuntime error:", zap.Error(err))
 			}
 			if err := agent.CollectRandomValue(); err != nil {
-				log.Printf("CollectRandomValue error: %s", err)
+				agent.Logger.Error("CollectRandomValue error:", zap.Error(err))
 			}
 			if err := agent.CollectIncrementCounter("PollCount", 1); err != nil {
-				log.Printf("CollectIncrementCounter error: %s", err)
+				agent.Logger.Error("CollectIncrementCounter error:", zap.Error(err))
 			}
 
 		case <-reportTicker.C:
-			log.Println("Reporting metrics")
+			agent.Logger.Info("Reporting metrics")
 			if err := agent.Report(); err != nil {
-				log.Printf("Report error: %s", err)
+				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
 		}
 	}

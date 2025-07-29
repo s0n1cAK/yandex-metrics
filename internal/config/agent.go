@@ -3,101 +3,59 @@ package config
 import (
 	"errors"
 	"flag"
-	"net/url"
-	"strconv"
-	"strings"
+	"net/http"
+	"os"
+	"sync"
 	"time"
+
+	"github.com/caarlos0/env/v11"
+	"go.uber.org/zap"
 )
 
 const (
-	defaultEndpoint   = "localhost"
-	defaultReportTime = time.Second * 10
-	defaultPollTime   = time.Second * 2
+	defaultAgentEndpoint = "http://localhost:8080"
+	defaultReportTime    = time.Second * 10
+	defaultPollTime      = time.Second * 2
 )
 
 var (
 	ErrInvalidDurationFormat = errors.New("invalid duration format")
 	ErrInvalidNumericFormat  = errors.New("invalid numeric duration format")
+
+	AgentFlagInit sync.Once
 )
 
 type AgentConfig struct {
-	Endpoint   endpoint
-	ReportTime customTime
-	PollTime   customTime
-}
-type customTime time.Duration
-
-func (ct *customTime) String() string {
-	return time.Duration(*ct).String()
+	Client     *http.Client
+	Endpoint   Endpoint   `env:"ADDRESS"`
+	ReportTime customTime `env:"REPORT_INTERVAL"`
+	PollTime   customTime `env:"POLL_INTERVAL"`
+	Logger     *zap.Logger
 }
 
-func (ct customTime) Duration() time.Duration {
-	return time.Duration(ct)
-}
-
-func (ct *customTime) Set(value string) error {
-	var duration time.Duration
-	var err error
-
-	if strings.HasSuffix(value, "s") {
-		duration, err = time.ParseDuration(value)
-		if err != nil {
-			return ErrInvalidDurationFormat
-		}
-	} else {
-		seconds, err := strconv.Atoi(value)
-		if err != nil {
-			return ErrInvalidNumericFormat
-		}
-		duration = time.Duration(seconds) * time.Second
-	}
-
-	*ct = customTime(duration)
-	return nil
-}
-
-type endpoint string
-
-func (e *endpoint) String() string {
-	return string(*e)
-}
-
-func (e *endpoint) Set(value string) error {
-	if !strings.Contains(value, "://") {
-		value = "http://" + value
-	}
-
-	u, err := url.Parse(value)
-	if err != nil || u.Host == "" {
-		return errors.New("invalid endpoint format, must be scheme://host:port")
-	}
-
-	hostPort := strings.Split(u.Host, ":")
-	if len(hostPort) != 2 {
-		return errors.New("endpoint must include port")
-	}
-
-	port, err := strconv.Atoi(hostPort[1])
-	if err != nil || port < 1 || port > 65535 {
-		return errors.New("invalid port number")
-	}
-
-	*e = endpoint(value)
-	return nil
-}
-
-func NewAgentConfig() *AgentConfig {
+func NewAgentConfigWithFlags(fs *flag.FlagSet, args []string, log *zap.Logger) (*AgentConfig, error) {
 	cfg := &AgentConfig{
-		Endpoint:   "http://localhost:8080",
+		Client:     &http.Client{},
+		Endpoint:   defaultAgentEndpoint,
 		ReportTime: customTime(defaultReportTime),
 		PollTime:   customTime(defaultPollTime),
+		Logger:     log,
 	}
 
-	flag.Var(&cfg.Endpoint, "a", "Server address in format scheme://host:port")
-	flag.Var(&cfg.ReportTime, "r", "Frequency of sending metrics to the server")
-	flag.Var(&cfg.PollTime, "p", "Frequency of polling metrics from the package")
+	if err := env.Parse(cfg); err != nil {
+		return nil, err
+	}
 
-	flag.Parse()
+	fs.Var(&cfg.Endpoint, "a", "Server address in format scheme://host:port")
+	fs.Var(&cfg.ReportTime, "r", "Frequency of sending metrics to the server")
+	fs.Var(&cfg.PollTime, "p", "Frequency of polling metrics from the package")
 
-	return cfg
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func NewAgentConfig(log *zap.Logger) (*AgentConfig, error) {
+	return NewAgentConfigWithFlags(flag.CommandLine, os.Args[1:], log)
 }
