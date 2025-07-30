@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 )
@@ -239,5 +243,22 @@ func GetMetrics(s storage.BasicStorage) http.HandlerFunc {
 		w.Header().Add("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(string(payload)))
+	}
+}
+
+func PingDB(DSN string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+
+		err := db.PingDB(ctx, DSN)
+
+		w.Header().Add("Content-Type", "text/plain")
+		if err != nil {
+			http.Error(w, "Fail to check DB", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 	}
 }

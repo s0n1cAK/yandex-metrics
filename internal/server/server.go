@@ -81,6 +81,7 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 
 	r.Get("/", handlers.GetMetrics(storage))
 	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
+	r.Get("/ping", handlers.PingDB(cfg.DSN))
 
 	r.Post("/value", handlers.GetMetricJSON(storage))
 	r.Post("/value/", handlers.GetMetricJSON(storage))
