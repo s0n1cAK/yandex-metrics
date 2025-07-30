@@ -1,17 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
-	memStorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
+	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
 	"go.uber.org/zap"
 )
 
 func main() {
+
 	log, err := logger.NewLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %s \n", err)
@@ -24,14 +28,20 @@ func main() {
 	}
 	defer cfg.Logger.Sync()
 
-	storage := memStorage.New()
+	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer appCancel()
+
+	storage, err := dbstorage.NewPostgresStorage(appCtx, cfg.DSN)
+	if err != nil {
+		log.Fatal("failed to create storage", zap.Error(err))
+	}
 
 	srv, err := server.New(cfg, storage)
 	if err != nil {
 		log.Fatal("failed to create server", zap.Error(err))
 	}
 
-	err = srv.Start()
+	err = srv.Start(appCtx)
 	if err != nil {
 		log.Fatal("error while starting server", zap.Error(err))
 	}
