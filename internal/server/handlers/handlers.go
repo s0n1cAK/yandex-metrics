@@ -65,18 +65,6 @@ func SetMetricURL(s storage.BasicStorage) http.HandlerFunc {
 			return
 		}
 
-		oldMetric, _ := s.Get(rMetric.ID)
-
-		if rMetric.MType == models.Counter {
-			var newDelta int64
-			if oldMetric.Delta != nil {
-				newDelta = *oldMetric.Delta + *rMetric.Delta
-			} else {
-				newDelta = *rMetric.Delta
-			}
-			rMetric.Delta = &newDelta
-		}
-
 		err := s.Set(rMetric.ID, rMetric)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
