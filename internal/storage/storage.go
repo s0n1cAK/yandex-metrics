@@ -6,5 +6,5 @@ type BasicStorage interface {
 	Set(key string, value models.Metrics) error
 	Get(key string) (models.Metrics, bool)
 	GetAll() map[string]models.Metrics
-	SetAll([]models.Metrics)
+	SetAll([]models.Metrics) error
 }

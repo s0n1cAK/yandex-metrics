@@ -10,7 +10,9 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
+	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
+	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 	"go.uber.org/zap"
 )
 
@@ -31,9 +33,18 @@ func main() {
 	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer appCancel()
 
-	storage, err := dbstorage.NewPostgresStorage(appCtx, cfg.DSN)
-	if err != nil {
-		log.Fatal("failed to create storage", zap.Error(err))
+	var storage storage.BasicStorage
+
+	if cfg.UseDB {
+		storage, err = dbstorage.NewPostgresStorage(appCtx, cfg.DSN)
+		if err != nil {
+			log.Fatal("failed to create storage", zap.Error(err))
+		}
+	}
+
+	if cfg.UseFile || cfg.UseRAM {
+		storage = memstorage.New()
+
 	}
 
 	srv, err := server.New(cfg, storage)

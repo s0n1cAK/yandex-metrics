@@ -122,18 +122,6 @@ func SetMetricJSON(s storage.BasicStorage) http.HandlerFunc {
 			return
 		}
 
-		oldMetric, _ := s.Get(rMetric.ID)
-
-		if rMetric.MType == models.Counter {
-			var newDelta int64
-			if oldMetric.Delta != nil {
-				newDelta = *oldMetric.Delta + *rMetric.Delta
-			} else {
-				newDelta = *rMetric.Delta
-			}
-			rMetric.Delta = &newDelta
-		}
-
 		err = s.Set(rMetric.ID, rMetric)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -259,6 +247,37 @@ func PingDB(DSN string) http.HandlerFunc {
 			return
 		}
 
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func SetBatchMetrics(s storage.BasicStorage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Metrics can't be parsed", http.StatusBadRequest)
+			return
+		}
+
+		if len(bodyBytes) == 0 {
+			http.Error(w, "No metrics", http.StatusBadRequest)
+			return
+		}
+
+		var rMetrics []models.Metrics
+
+		if err = json.Unmarshal(bodyBytes, &rMetrics); err != nil {
+			http.Error(w, "Metric can't be parsed", http.StatusBadRequest)
+			return
+		}
+
+		if err = s.SetAll(rMetrics); err != nil {
+			http.Error(w, "Error while sending metrics", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 	}
 }

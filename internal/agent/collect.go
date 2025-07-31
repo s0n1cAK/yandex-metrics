@@ -113,7 +113,7 @@ func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
 	} else {
 		newDelta = value
 	}
-	fmt.Println(metric, newDelta)
+
 	err := agent.Storage.Set(ID, models.Metrics{
 		ID:    ID,
 		MType: models.Counter,

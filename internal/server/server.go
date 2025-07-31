@@ -101,6 +101,8 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	r.Post("/value/", handlers.GetMetricJSON(storage))
 	r.Post("/update", handlers.SetMetricJSON(storage))
 	r.Post("/update/", handlers.SetMetricJSON(storage))
+	r.Post("/updates", handlers.SetBatchMetrics(storage))
+	r.Post("/updates/", handlers.SetBatchMetrics(storage))
 	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage))
 
 	return &Server{
@@ -179,12 +181,10 @@ func (c *Server) Start(ctx context.Context) error {
 			return err
 		}
 	}
-
 	if c.Config.UseDB {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		fmt.Println(c.Config.DSN)
 		err = db.InitMigration(ctx, c.Config.DSN)
 		if err != nil {
 			c.Config.Logger.Error("Ошибка при выполнении миграции", zap.Error(err))

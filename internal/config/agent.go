@@ -53,6 +53,7 @@ func NewAgentConfigWithFlags(fs *flag.FlagSet, args []string, log *zap.Logger) (
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
+
 	return cfg, nil
 }
 

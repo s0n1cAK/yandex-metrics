@@ -39,8 +39,6 @@ func New(cfg config.AgentConfig, storage Storage) *Agent {
 
 // https://gosamples.dev/range-over-ticker/
 
-/*
- */
 func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 
 	if pollInterval < time.Second {

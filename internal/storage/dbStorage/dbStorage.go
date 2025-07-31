@@ -33,17 +33,21 @@ func NewPostgresStorage(ctx context.Context, DSN config.DSN) (*PostgresStorage, 
 
 func (p *PostgresStorage) Set(key string, value models.Metrics) error {
 	q := fmt.Sprintf(`
-		INSERT INTO %s (name, mtype, delta, value, hash)
+		INSERT INTO %s (name, type, delta, value, hash)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (name)
-		DO UPDATE SET mtype = $2, delta = $3, value = $4, hash = $5;
-		`, p.tableName)
+		DO UPDATE SET
+			type = EXCLUDED.type,
+			delta = %s.delta + EXCLUDED.delta,
+			value = EXCLUDED.value,
+			hash = EXCLUDED.hash;
+	`, p.tableName, p.tableName)
 	_, err := p.db.ExecContext(p.ctx, q, key, value.MType, value.Delta, value.Value, value.Hash)
 	return err
 }
 
 func (p *PostgresStorage) Get(key string) (models.Metrics, bool) {
-	q := `SELECT name, mtype, delta, value, hash FROM metrics WHERE = $1`
+	q := fmt.Sprintf(`SELECT name, type, delta, value, hash FROM %s WHERE name = $1`, p.tableName)
 	row := p.db.QueryRowContext(p.ctx, q, key)
 
 	var m models.Metrics
@@ -58,7 +62,7 @@ func (p *PostgresStorage) Get(key string) (models.Metrics, bool) {
 }
 
 func (p *PostgresStorage) GetAll() map[string]models.Metrics {
-	q := `SELECT name, mtype, delta, value, hash FROM metrics`
+	q := fmt.Sprintf(`SELECT name, type, delta, value, hash FROM %s`, p.tableName)
 	rows, err := p.db.QueryContext(p.ctx, q)
 	if err != nil {
 		return nil
@@ -76,8 +80,36 @@ func (p *PostgresStorage) GetAll() map[string]models.Metrics {
 	return result
 }
 
-func (p *PostgresStorage) SetAll([]models.Metrics) {
-	// заглушка
+func (p *PostgresStorage) SetAll(metrics []models.Metrics) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(p.ctx, fmt.Sprintf(`
+		INSERT INTO %s (name, type, delta, value, hash) 
+		VALUES ($1, $2, $3, $4, $5) 		
+		ON CONFLICT (name)
+		DO UPDATE SET 
+			type = EXCLUDED.type,
+			delta = %s.delta + EXCLUDED.delta,
+			value = EXCLUDED.value,
+			hash = EXCLUDED.hash;
+		`, p.tableName, p.tableName))
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, val := range metrics {
+		_, err := stmt.ExecContext(p.ctx, val.ID, val.MType, val.Delta, val.Value, val.Hash)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 /*

@@ -38,7 +38,6 @@ func formatDSN(value string) (DSN, error) {
 
 	dsn.SSLMode = uri.Query().Get("sslmode")
 
-	fmt.Println(dsn)
 	return dsn, nil
 }
 
