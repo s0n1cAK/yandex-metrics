@@ -61,11 +61,14 @@ func (p *PostgresStorage) Get(key string) (models.Metrics, bool) {
 	return m, true
 }
 
-func (p *PostgresStorage) GetAll() map[string]models.Metrics {
+func (p *PostgresStorage) GetAll() (map[string]models.Metrics, error) {
 	q := fmt.Sprintf(`SELECT name, type, delta, value, hash FROM %s`, p.tableName)
 	rows, err := p.db.QueryContext(p.ctx, q)
 	if err != nil {
-		return nil
+		return map[string]models.Metrics{}, err
+	}
+	if err := rows.Err(); err != nil {
+		return map[string]models.Metrics{}, err
 	}
 	defer rows.Close()
 
@@ -77,7 +80,7 @@ func (p *PostgresStorage) GetAll() map[string]models.Metrics {
 		}
 		result[m.ID] = m
 	}
-	return result
+	return result, nil
 }
 
 func (p *PostgresStorage) SetAll(metrics []models.Metrics) error {

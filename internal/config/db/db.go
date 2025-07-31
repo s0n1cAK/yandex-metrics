@@ -24,7 +24,7 @@ func InitMigration(ctx context.Context, DSN config.DSN) error {
 		fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=%s", DSN.User, DSN.Password, DSN.Host, DSN.Name, DSN.SSLMode),
 	)
 	if err != nil {
-		return fmt.Errorf("Неудалось создать миграцию: %v", err)
+		return fmt.Errorf("неудалось создать миграцию: %v", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

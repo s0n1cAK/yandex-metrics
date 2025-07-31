@@ -15,7 +15,7 @@ const fiveMinutes = time.Second * 300
 type Storage interface {
 	Set(key string, value models.Metrics) error
 	Get(key string) (models.Metrics, bool)
-	GetAll() map[string]models.Metrics
+	GetAll() (map[string]models.Metrics, error)
 	Clear()
 	Delete(key string)
 }

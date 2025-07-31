@@ -14,7 +14,10 @@ import (
 func (agent *Agent) Report() error {
 	OP := "Agent.Report"
 
-	stotageMetrics := agent.Storage.GetAll()
+	stotageMetrics, err := agent.Storage.GetAll()
+	if err != nil {
+		return fmt.Errorf("%s: %s", OP, err)
+	}
 
 	metrics := make([]models.Metrics, 0, len(stotageMetrics))
 

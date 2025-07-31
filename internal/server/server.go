@@ -150,7 +150,11 @@ func (c *Server) scheduleFilePersistence() error {
 
 		go func() {
 			for range ticker.C {
-				err := c.producer.WriteMetrics(c.Storage.GetAll())
+				metrics, err := c.Storage.GetAll()
+				if err != nil {
+					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+				}
+				err = c.producer.WriteMetrics(metrics)
 				if err != nil {
 					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
 				} else {
@@ -206,7 +210,11 @@ func (c *Server) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	if c.Config.UseFile {
-		err = c.producer.WriteMetrics(c.Storage.GetAll())
+		metrics, err := c.Storage.GetAll()
+		if err != nil {
+			c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+		}
+		err = c.producer.WriteMetrics(metrics)
 		if err != nil {
 			c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
 		} else {

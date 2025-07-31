@@ -70,7 +70,7 @@ func (s *MemStorage) Get(key string) (models.Metrics, bool) {
 	return deepCopy(val), ok
 }
 
-func (s *MemStorage) GetAll() map[string]models.Metrics {
+func (s *MemStorage) GetAll() (map[string]models.Metrics, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -79,7 +79,7 @@ func (s *MemStorage) GetAll() map[string]models.Metrics {
 	for name, data := range s.values {
 		metrics[name] = deepCopy(data)
 	}
-	return metrics
+	return metrics, nil
 }
 
 func (s *MemStorage) SetAll(metrics []models.Metrics) error {

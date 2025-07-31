@@ -217,8 +217,8 @@ func GetMetric(s storage.BasicStorage) http.HandlerFunc {
 func GetMetrics(s storage.BasicStorage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metrics []string
-
-		for _, metirc := range s.GetAll() {
+		sMetrics, _ := s.GetAll()
+		for _, metirc := range sMetrics {
 			metrics = append(metrics, metirc.ID)
 		}
 
