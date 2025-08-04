@@ -44,7 +44,6 @@ func (agent *Agent) Report() error {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
 
-	fmt.Println(string(payload[:]))
 	// Подумать о переходе на resty, но для начала узначать в чем выгода
 	request, err := http.NewRequest(http.MethodPost, endpoint, &buf)
 	if err != nil {
