@@ -63,19 +63,14 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 		return nil, fmt.Errorf("%s: %v is not an valid port", OP, port)
 	}
 
-	if cfg.UseFile {
-		if cfg.File == "" {
-			cfg.File = "Metrics.data"
-		}
-		consumer, err = filestorage.NewConsumer(cfg.File)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %s", OP, err)
-		}
+	consumer, err = filestorage.NewConsumer(cfg.File)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", OP, err)
+	}
 
-		producer, err = filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
-		if err != nil {
-			return nil, fmt.Errorf("%s: %s", OP, err)
-		}
+	producer, err = filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", OP, err)
 	}
 
 	r := chi.NewRouter()
