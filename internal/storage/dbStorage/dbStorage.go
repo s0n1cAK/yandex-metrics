@@ -7,6 +7,7 @@ import (
 
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
 )
 
 type PostgresStorage struct {
@@ -16,13 +17,16 @@ type PostgresStorage struct {
 }
 
 func NewPostgresStorage(ctx context.Context, DSN config.DSN) (*PostgresStorage, error) {
-	db, err := sql.Open("postgres", DSN.String())
+	db, err := retries.OpenDBWithRetry(DSN.String())
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
+
 	return &PostgresStorage{
 		db:        db,
 		tableName: DSN.Name,
@@ -32,7 +36,8 @@ func NewPostgresStorage(ctx context.Context, DSN config.DSN) (*PostgresStorage, 
 }
 
 func (p *PostgresStorage) Set(key string, value models.Metrics) error {
-	q := fmt.Sprintf(`
+	err := retries.ExecuteWithRetry(func() error {
+		q := fmt.Sprintf(`
 		INSERT INTO %s (name, type, delta, value, hash)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (name)
@@ -41,8 +46,13 @@ func (p *PostgresStorage) Set(key string, value models.Metrics) error {
 			delta = %s.delta + EXCLUDED.delta,
 			value = EXCLUDED.value,
 			hash = EXCLUDED.hash;
-	`, p.tableName, p.tableName)
-	_, err := p.db.ExecContext(p.ctx, q, key, value.MType, value.Delta, value.Value, value.Hash)
+		`, p.tableName, p.tableName)
+
+		_, err := p.db.ExecContext(p.ctx, q, key, value.MType, value.Delta, value.Value, value.Hash)
+
+		return err
+	})
+
 	return err
 }
 
@@ -84,35 +94,38 @@ func (p *PostgresStorage) GetAll() (map[string]models.Metrics, error) {
 }
 
 func (p *PostgresStorage) SetAll(metrics []models.Metrics) error {
-	tx, err := p.db.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer tx.Rollback()
-
-	stmt, err := tx.PrepareContext(p.ctx, fmt.Sprintf(`
-		INSERT INTO %s (name, type, delta, value, hash) 
-		VALUES ($1, $2, $3, $4, $5) 		
-		ON CONFLICT (name)
-		DO UPDATE SET 
-			type = EXCLUDED.type,
-			delta = %s.delta + EXCLUDED.delta,
-			value = EXCLUDED.value,
-			hash = EXCLUDED.hash;
-		`, p.tableName, p.tableName))
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, val := range metrics {
-		_, err := stmt.ExecContext(p.ctx, val.ID, val.MType, val.Delta, val.Value, val.Hash)
+	err := retries.ExecuteWithRetry(func() error {
+		tx, err := p.db.Begin()
 		if err != nil {
 			return err
 		}
-	}
-	return tx.Commit()
+
+		defer tx.Rollback()
+
+		stmt, err := tx.PrepareContext(p.ctx, fmt.Sprintf(`
+			INSERT INTO %s (name, type, delta, value, hash) 
+			VALUES ($1, $2, $3, $4, $5) 		
+			ON CONFLICT (name)
+			DO UPDATE SET 
+				type = EXCLUDED.type,
+				delta = %s.delta + EXCLUDED.delta,
+				value = EXCLUDED.value,
+				hash = EXCLUDED.hash;
+			`, p.tableName, p.tableName))
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, val := range metrics {
+			_, err := stmt.ExecContext(p.ctx, val.ID, val.MType, val.Delta, val.Value, val.Hash)
+			if err != nil {
+				return err
+			}
+		}
+		return tx.Commit()
+	})
+	return err
 }
 
 /*

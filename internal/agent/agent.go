@@ -40,7 +40,6 @@ func New(cfg config.AgentConfig, storage Storage) *Agent {
 // https://gosamples.dev/range-over-ticker/
 
 func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
-
 	if pollInterval < time.Second {
 		return fmt.Errorf("PollInterval can't be lower that 2 seconds")
 	}
@@ -55,6 +54,7 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
+
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
 
@@ -73,7 +73,8 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
-			if err := agent.Report(); err != nil {
+			err := agent.Report()
+			if err != nil {
 				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
 		}

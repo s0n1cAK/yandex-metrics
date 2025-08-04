@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,32 +10,30 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
 )
 
 func InitMigration(ctx context.Context, DSN config.DSN) error {
-	db, err := sql.Open("pgx", DSN.String())
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
 	m, err := migrate.New(
 		"file://migrations",
 		DSN.String(),
 	)
+
 	if err != nil {
 		return fmt.Errorf("неудалось создать миграцию: %v", err)
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("миграция не выполнена: %v", err)
+	err = m.Up()
+
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("миграция не выполнена: %w", err)
 	}
 
 	return nil
 }
 
 func PingDB(ctx context.Context, DSN string) error {
-	db, err := sql.Open("pgx", DSN)
+	db, err := retries.OpenDBWithRetry(DSN)
 	if err != nil {
 		return err
 	}
