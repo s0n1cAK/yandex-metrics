@@ -1,7 +1,7 @@
 -- Создание таблицы метрик
 CREATE TABLE metrics (
     name VARCHAR(255) PRIMARY KEY,
-    type VARCHAR(255) NOT NULL CHECK (mtype IN ('counter', 'gauge')),
+    type VARCHAR(255) NOT NULL CHECK (type IN ('counter', 'gauge')),
     delta BIGINT,
     value DOUBLE PRECISION,
     hash VARCHAR(255)

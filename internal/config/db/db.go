@@ -20,8 +20,8 @@ func InitMigration(ctx context.Context, DSN config.DSN) error {
 	defer db.Close()
 
 	m, err := migrate.New(
-		"file://internal/migrations",
-		fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=%s", DSN.User, DSN.Password, DSN.Host, DSN.Name, DSN.SSLMode),
+		"file://migrations",
+		DSN.String(),
 	)
 	if err != nil {
 		return fmt.Errorf("неудалось создать миграцию: %v", err)
