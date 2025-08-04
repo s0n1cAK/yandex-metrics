@@ -84,24 +84,24 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	r.Use(middleware.Timeout(60 * time.Second))
 	if cfg.UseFile {
 		if cfg.StoreInterval == 0 {
-			cfg.Logger.Info("Cинхронная записи метрик")
+			cfg.Logger.Info("Cинхронная запись метрик")
 			r.Use(writeMetrics(producer))
 		}
 	}
 
-	r.Get("/", handlers.GetMetrics(storage))
-	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage))
+	r.Get("/", handlers.GetMetrics(storage, cfg.Logger))
+	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage, cfg.Logger))
 	if cfg.UseDB {
-		r.Get("/ping", handlers.PingDB(cfg.DSN.String()))
+		r.Get("/ping", handlers.PingDB(cfg.DSN.String(), cfg.Logger))
 	}
 
-	r.Post("/value", handlers.GetMetricJSON(storage))
-	r.Post("/value/", handlers.GetMetricJSON(storage))
-	r.Post("/update", handlers.SetMetricJSON(storage))
-	r.Post("/update/", handlers.SetMetricJSON(storage))
-	r.Post("/updates", handlers.SetBatchMetrics(storage))
-	r.Post("/updates/", handlers.SetBatchMetrics(storage))
-	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage))
+	r.Post("/value", handlers.GetMetricJSON(storage, cfg.Logger))
+	r.Post("/value/", handlers.GetMetricJSON(storage, cfg.Logger))
+	r.Post("/update", handlers.SetMetricJSON(storage, cfg.Logger))
+	r.Post("/update/", handlers.SetMetricJSON(storage, cfg.Logger))
+	r.Post("/updates", handlers.SetBatchMetrics(storage, cfg.Logger))
+	r.Post("/updates/", handlers.SetBatchMetrics(storage, cfg.Logger))
+	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage, cfg.Logger))
 
 	return &Server{
 		Address:  domain,
