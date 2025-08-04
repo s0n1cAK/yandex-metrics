@@ -63,14 +63,19 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 		return nil, fmt.Errorf("%s: %v is not an valid port", OP, port)
 	}
 
-	consumer, err = filestorage.NewConsumer(cfg.File)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
-	}
+	if cfg.UseFile {
+		if cfg.File == "" {
+			cfg.File = "Metrics.data"
+		}
+		consumer, err = filestorage.NewConsumer(cfg.File)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", OP, err)
+		}
 
-	producer, err = filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
+		producer, err = filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", OP, err)
+		}
 	}
 
 	r := chi.NewRouter()
@@ -168,13 +173,15 @@ func (c *Server) Start(ctx context.Context) error {
 
 	c.logStartupInfo()
 
-	if c.Config.UseFile {
+	if c.Config.Restore {
 		// Read metrics from file
 		err = c.restoreMetricsFromFile()
 		if err != nil {
 			return err
 		}
+	}
 
+	if c.Config.UseFile {
 		err = c.scheduleFilePersistence()
 		if err != nil {
 			return err
