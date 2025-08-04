@@ -66,6 +66,7 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	if cfg.File == "" {
 		cfg.File = "Metrics.data"
 	}
+
 	consumer, err = filestorage.NewConsumer(cfg.File)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %s", OP, err)
