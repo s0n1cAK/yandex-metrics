@@ -1,15 +1,15 @@
 package agent
 
 import (
-	"net/http"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
 	"go.uber.org/zap"
 )
 
 type Config struct {
-	Client         *http.Client
+	Client         *retryablehttp.Client
 	Endpoint       customtype.Endpoint `env:"ADDRESS"`
 	ReportInterval customtype.Time     `env:"REPORT_INTERVAL"`
 	PollInterval   customtype.Time     `env:"POLL_INTERVAL"`

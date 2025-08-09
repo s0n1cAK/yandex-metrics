@@ -2,9 +2,9 @@ package agent
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
@@ -23,7 +23,7 @@ type Storage interface {
 type Agent struct {
 	Storage        Storage
 	LastReportTime time.Duration
-	Client         *http.Client
+	Client         *retryablehttp.Client
 	Server         string
 	Logger         *zap.Logger
 }

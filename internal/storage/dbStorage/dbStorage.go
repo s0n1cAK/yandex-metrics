@@ -7,7 +7,7 @@ import (
 
 	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
-	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
+	"github.com/s0n1cAK/yandex-metrics/internal/retries"
 )
 
 type PostgresStorage struct {

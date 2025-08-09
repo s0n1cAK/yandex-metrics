@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/hashicorp/go-retryablehttp"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
@@ -45,7 +46,7 @@ func (agent *Agent) Report() error {
 	}
 
 	// Подумать о переходе на resty, но для начала узначать в чем выгода
-	request, err := http.NewRequest(http.MethodPost, endpoint, &buf)
+	request, err := retryablehttp.NewRequest(http.MethodPost, endpoint, &buf)
 	if err != nil {
 		return fmt.Errorf("%s: %s", OP, err)
 	}

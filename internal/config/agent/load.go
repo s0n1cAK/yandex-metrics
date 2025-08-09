@@ -2,16 +2,16 @@ package agent
 
 import (
 	"flag"
-	"net/http"
 	"os"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/hashicorp/go-retryablehttp"
 	"go.uber.org/zap"
 )
 
 func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error) {
 	cfg := Config{
-		Client:         &http.Client{},
+		Client:         &retryablehttp.Client{},
 		Endpoint:       DefaultEndpoint,
 		ReportInterval: DefaultReportInterval,
 		PollInterval:   DefaultPollInterval,
@@ -29,6 +29,8 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
+
+	configureRetries(cfg)
 
 	return cfg, nil
 }

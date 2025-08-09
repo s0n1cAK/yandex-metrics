@@ -7,7 +7,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
-	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
+	"github.com/s0n1cAK/yandex-metrics/internal/retries"
 )
 
 type DBPinger struct {
