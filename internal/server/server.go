@@ -166,8 +166,6 @@ func (c *Server) scheduleFilePersistence() error {
 func (c *Server) Start(ctx context.Context) error {
 	var err error
 
-	OP := "Server.Start"
-
 	c.logStartupInfo()
 
 	if c.Config.Restore {
@@ -181,10 +179,12 @@ func (c *Server) Start(ctx context.Context) error {
 	case *dbstorage.PostgresStorage:
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		if err := db.InitMigration(ctx, c.Config.DSN); err != nil {
+
+		if err := db.Migration(ctx, c.Config.DSN); err != nil {
 			c.Config.Logger.Error("Ошибка при выполнении миграции", zap.Error(err))
 			return err
 		}
+
 		c.Config.Logger.Info("Миграции выполнены успешно")
 	case *memstorage.MemStorage:
 		if err := c.scheduleFilePersistence(); err != nil {
@@ -192,6 +192,17 @@ func (c *Server) Start(ctx context.Context) error {
 		}
 	}
 
+	srv := c.start()
+
+	err = c.gracefulShutdown(ctx, srv)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Server) start() *http.Server {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%v", c.Address, c.Port),
 		Handler: c.Router,
@@ -202,6 +213,12 @@ func (c *Server) Start(ctx context.Context) error {
 			c.Config.Logger.Fatal("Ошибка сервера", zap.Error(err))
 		}
 	}()
+
+	return srv
+}
+
+func (c *Server) gracefulShutdown(ctx context.Context, srv *http.Server) error {
+	OP := "server.gracefulShutdown"
 
 	<-ctx.Done()
 	if _, ok := c.Storage.(*memstorage.MemStorage); ok {

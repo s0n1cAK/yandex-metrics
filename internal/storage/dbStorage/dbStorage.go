@@ -17,7 +17,7 @@ type PostgresStorage struct {
 }
 
 func NewPostgresStorage(ctx context.Context, DSN customtype.DSN) (*PostgresStorage, error) {
-	db, err := retries.OpenDBWithRetry(DSN.String())
+	db, err := retries.OpenDBWithRetry(ctx, DSN.String())
 
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func NewPostgresStorage(ctx context.Context, DSN customtype.DSN) (*PostgresStora
 }
 
 func (p *PostgresStorage) Set(key string, value models.Metrics) error {
-	err := retries.ExecuteWithRetry(func() error {
+	err := retries.ExecuteWithRetry(p.ctx, func() error {
 		q := fmt.Sprintf(`
 		INSERT INTO %s (name, type, delta, value, hash)
 		VALUES ($1, $2, $3, $4, $5)
@@ -94,7 +94,7 @@ func (p *PostgresStorage) GetAll() (map[string]models.Metrics, error) {
 }
 
 func (p *PostgresStorage) SetAll(metrics []models.Metrics) error {
-	err := retries.ExecuteWithRetry(func() error {
+	err := retries.ExecuteWithRetry(p.ctx, func() error {
 		tx, err := p.db.Begin()
 		if err != nil {
 			return err
