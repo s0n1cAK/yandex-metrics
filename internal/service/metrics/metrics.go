@@ -36,9 +36,6 @@ type service struct {
 }
 
 func New(repo Repository, ping Pinger, log *zap.Logger) Service {
-	if log == nil {
-		log = zap.NewNop()
-	}
 	return &service{repo: repo, ping: ping, log: log}
 }
 
@@ -55,14 +52,12 @@ func (s *service) Set(ctx context.Context, m models.Metrics) error {
 		if m.Delta == nil {
 			return domain.ErrInvalidPayload
 		}
-		if *m.Delta == 0 {
-			return domain.ErrZeroCounter
-		}
 	default:
 		return domain.ErrInvalidType
 	}
 
 	if err := s.repo.Set(m.ID, m); err != nil {
+		s.log.Error(err.Error())
 		return err
 	}
 	s.log.Info("metric set", zap.String("id", m.ID), zap.String("type", m.MType))
