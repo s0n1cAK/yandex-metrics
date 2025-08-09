@@ -7,24 +7,22 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	config "github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
-	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
-	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
+
 	"go.uber.org/zap"
 )
 
 func main() {
-
 	log, err := logger.NewLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %s \n", err)
 		os.Exit(1)
 	}
 
-	cfg, err := config.NewServerConfig(log)
+	cfg, err := config.NewConfig(log)
 	if err != nil {
 		log.Fatal("failed to create server config", zap.Error(err))
 	}
@@ -33,21 +31,12 @@ func main() {
 	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer appCancel()
 
-	var storage storage.BasicStorage
-
-	if cfg.UseDB {
-		storage, err = dbstorage.NewPostgresStorage(appCtx, cfg.DSN)
-		if err != nil {
-			log.Fatal("failed to create storage", zap.Error(err))
-		}
+	storage, err := storage.New(appCtx, cfg, log)
+	if err != nil {
+		log.Fatal("failed to create storage", zap.Error(err))
 	}
 
-	if cfg.UseFile || cfg.UseRAM {
-		storage = memstorage.New()
-
-	}
-
-	srv, err := server.New(cfg, storage)
+	srv, err := server.New(&cfg, storage)
 	if err != nil {
 		log.Fatal("failed to create server", zap.Error(err))
 	}

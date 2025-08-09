@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
 )
@@ -16,7 +16,7 @@ type PostgresStorage struct {
 	ctx       context.Context
 }
 
-func NewPostgresStorage(ctx context.Context, DSN config.DSN) (*PostgresStorage, error) {
+func NewPostgresStorage(ctx context.Context, DSN customtype.DSN) (*PostgresStorage, error) {
 	db, err := retries.OpenDBWithRetry(DSN.String())
 
 	if err != nil {

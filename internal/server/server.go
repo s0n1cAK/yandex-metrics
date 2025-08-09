@@ -10,12 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
+	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
+	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
+	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 	"github.com/s0n1cAK/yandex-metrics/internal/transport/httpx"
 	"go.uber.org/zap"
 )
@@ -29,13 +31,13 @@ type Server struct {
 	Address  string
 	Port     int
 	Router   *chi.Mux
-	Config   *config.ServerConfig
+	Config   *server.Config
 	Storage  storage.BasicStorage
 	consumer *filestorage.Consumer
 	producer *filestorage.Producer
 }
 
-func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error) {
+func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	var consumer *filestorage.Consumer
 	var producer *filestorage.Producer
 	var err error
@@ -85,11 +87,10 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	r.Use(gzipCompession())
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(60 * time.Second))
-	if cfg.UseFile {
-		if cfg.StoreInterval == 0 {
-			cfg.Logger.Info("Cинхронная запись метрик")
-			r.Use(writeMetrics(producer))
-		}
+
+	if cfg.StoreInterval == 0 {
+		cfg.Logger.Info("Cинхронная запись метрик")
+		r.Use(writeMetrics(producer))
 	}
 
 	pinger := db.NewPinger(cfg.DSN)
@@ -121,9 +122,6 @@ func (c *Server) logStartupInfo() {
 		zap.Int("Port", c.Port),
 		zap.String("File", c.Config.File),
 		zap.Bool("Restore", c.Config.Restore),
-		zap.Bool("Database", c.Config.UseDB),
-		zap.Bool("File", c.Config.UseFile),
-		zap.Bool("Memory", c.Config.UseRAM),
 	)
 }
 
@@ -173,29 +171,25 @@ func (c *Server) Start(ctx context.Context) error {
 	c.logStartupInfo()
 
 	if c.Config.Restore {
-		// Read metrics from file
 		err = c.restoreMetricsFromFile()
 		if err != nil {
 			return err
 		}
 	}
 
-	if c.Config.UseFile {
-		err = c.scheduleFilePersistence()
-		if err != nil {
-			return err
-		}
-	}
-	if c.Config.UseDB {
+	switch c.Storage.(type) {
+	case *dbstorage.PostgresStorage:
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-
-		err = db.InitMigration(ctx, c.Config.DSN)
-		if err != nil {
+		if err := db.InitMigration(ctx, c.Config.DSN); err != nil {
 			c.Config.Logger.Error("Ошибка при выполнении миграции", zap.Error(err))
 			return err
 		}
 		c.Config.Logger.Info("Миграции выполнены успешно")
+	case *memstorage.MemStorage:
+		if err := c.scheduleFilePersistence(); err != nil {
+			return err
+		}
 	}
 
 	srv := &http.Server{
@@ -210,7 +204,7 @@ func (c *Server) Start(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-	if c.Config.UseFile {
+	if _, ok := c.Storage.(*memstorage.MemStorage); ok {
 		metrics, err := c.Storage.GetAll()
 		if err != nil {
 			c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))

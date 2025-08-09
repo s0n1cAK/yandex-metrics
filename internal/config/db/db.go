@@ -9,11 +9,11 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage/retries"
 )
 
-func InitMigration(ctx context.Context, DSN config.DSN) error {
+func InitMigration(ctx context.Context, DSN customtype.DSN) error {
 	m, err := migrate.New(
 		"file://migrations",
 		DSN.String(),
@@ -48,10 +48,10 @@ func PingDB(ctx context.Context, DSN string) error {
 }
 
 type DBPinger struct {
-	DSN config.DSN
+	DSN customtype.DSN
 }
 
-func NewPinger(DSN config.DSN) *DBPinger {
+func NewPinger(DSN customtype.DSN) *DBPinger {
 	return &DBPinger{DSN: DSN}
 }
 

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ type Agent struct {
 	Logger         *zap.Logger
 }
 
-func New(cfg config.AgentConfig, storage Storage) *Agent {
+func New(cfg agent.Config, storage Storage) *Agent {
 	return &Agent{
 		Client:  cfg.Client,
 		Server:  cfg.Endpoint.String(),
