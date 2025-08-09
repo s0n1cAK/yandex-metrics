@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/agent"
 	config "github.com/s0n1cAK/yandex-metrics/internal/config/agent"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
+	"github.com/s0n1cAK/yandex-metrics/internal/service/agent"
 	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 	"go.uber.org/zap"
 )
