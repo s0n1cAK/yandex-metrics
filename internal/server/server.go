@@ -13,9 +13,10 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/config"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
-	"github.com/s0n1cAK/yandex-metrics/internal/server/handlers"
+	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
+	"github.com/s0n1cAK/yandex-metrics/internal/transport/httpx"
 	"go.uber.org/zap"
 )
 
@@ -78,10 +79,11 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 	}
 
 	r := chi.NewRouter()
-	r.Use(Logging(cfg.Logger))
-	r.Use(gzipCompession())
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+	r.Use(Logging(cfg.Logger))
+	r.Use(gzipCompession())
+	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(60 * time.Second))
 	if cfg.UseFile {
 		if cfg.StoreInterval == 0 {
@@ -90,19 +92,17 @@ func New(cfg *config.ServerConfig, storage storage.BasicStorage) (*Server, error
 		}
 	}
 
-	r.Get("/", handlers.GetMetrics(storage, cfg.Logger))
-	r.Get("/value/{type}/{metric}", handlers.GetMetric(storage, cfg.Logger))
-	if cfg.UseDB {
-		r.Get("/ping", handlers.PingDB(cfg.DSN.String(), cfg.Logger))
-	}
+	pinger := db.NewPinger(cfg.DSN)
 
-	r.Post("/value", handlers.GetMetricJSON(storage, cfg.Logger))
-	r.Post("/value/", handlers.GetMetricJSON(storage, cfg.Logger))
-	r.Post("/update", handlers.SetMetricJSON(storage, cfg.Logger))
-	r.Post("/update/", handlers.SetMetricJSON(storage, cfg.Logger))
-	r.Post("/updates", handlers.SetBatchMetrics(storage, cfg.Logger))
-	r.Post("/updates/", handlers.SetBatchMetrics(storage, cfg.Logger))
-	r.Post("/update/{type}/{metric}/{value}", handlers.SetMetricURL(storage, cfg.Logger))
+	svc := metrics.New(storage, pinger, cfg.Logger)
+
+	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
+	r.Post("/updates", httpx.SetBatchMetrics(svc))
+	r.Post("/update", httpx.SetMetricJSON(svc))
+	r.Post("/value", httpx.GetMetricJSON(svc))
+	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
+	r.Get("/", httpx.GetMetrics(svc))
+	r.Get("/ping", httpx.Ping(svc))
 
 	return &Server{
 		Address:  domain,

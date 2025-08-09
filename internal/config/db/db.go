@@ -46,3 +46,15 @@ func PingDB(ctx context.Context, DSN string) error {
 	}
 	return nil
 }
+
+type DBPinger struct {
+	DSN config.DSN
+}
+
+func NewPinger(DSN config.DSN) *DBPinger {
+	return &DBPinger{DSN: DSN}
+}
+
+func (p *DBPinger) Ping(ctx context.Context) error {
+	return PingDB(ctx, p.DSN.String())
+}
