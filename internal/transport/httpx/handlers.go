@@ -111,7 +111,7 @@ func GetMetrics(svc metrics.Service) http.HandlerFunc {
 			WriteError(w, err)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(ids)
 	}
