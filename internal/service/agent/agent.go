@@ -2,10 +2,10 @@ package agent
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -15,7 +15,7 @@ const fiveMinutes = time.Second * 300
 type Storage interface {
 	Set(key string, value models.Metrics) error
 	Get(key string) (models.Metrics, bool)
-	GetAll() map[string]models.Metrics
+	GetAll() (map[string]models.Metrics, error)
 	Clear()
 	Delete(key string)
 }
@@ -23,12 +23,12 @@ type Storage interface {
 type Agent struct {
 	Storage        Storage
 	LastReportTime time.Duration
-	Client         *http.Client
+	Client         *retryablehttp.Client
 	Server         string
 	Logger         *zap.Logger
 }
 
-func New(cfg config.AgentConfig, storage Storage) *Agent {
+func New(cfg agent.Config, storage Storage) *Agent {
 	return &Agent{
 		Client:  cfg.Client,
 		Server:  cfg.Endpoint.String(),
@@ -39,10 +39,7 @@ func New(cfg config.AgentConfig, storage Storage) *Agent {
 
 // https://gosamples.dev/range-over-ticker/
 
-/*
- */
 func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
-
 	if pollInterval < time.Second {
 		return fmt.Errorf("PollInterval can't be lower that 2 seconds")
 	}
@@ -57,6 +54,7 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
+
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
 
@@ -75,7 +73,8 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
-			if err := agent.Report(); err != nil {
+			err := agent.Report()
+			if err != nil {
 				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
 		}

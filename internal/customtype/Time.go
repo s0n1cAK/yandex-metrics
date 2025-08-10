@@ -1,15 +1,21 @@
-package config
+package customtype
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 )
 
-type customTime time.Duration
+var (
+	ErrInvalidDurationFormat = errors.New("invalid duration format")
+	ErrInvalidNumericFormat  = errors.New("invalid numeric duration format")
+)
 
-func formatCustomTime(value string) (customTime, error) {
+type Time time.Duration
+
+func formatTime(value string) (Time, error) {
 	var duration time.Duration
 	var err error
 
@@ -26,19 +32,19 @@ func formatCustomTime(value string) (customTime, error) {
 		duration = time.Duration(seconds) * time.Second
 	}
 
-	return customTime(duration), nil
+	return Time(duration), nil
 }
 
-func (ct *customTime) String() string {
+func (ct *Time) String() string {
 	return time.Duration(*ct).String()
 }
 
-func (ct customTime) Duration() time.Duration {
+func (ct Time) Duration() time.Duration {
 	return time.Duration(ct)
 }
 
-func (ct *customTime) Set(value string) error {
-	gValue, err := formatCustomTime(value)
+func (ct *Time) Set(value string) error {
+	gValue, err := formatTime(value)
 	if err != nil {
 		return err
 	}
@@ -46,8 +52,8 @@ func (ct *customTime) Set(value string) error {
 	return nil
 }
 
-func (ct *customTime) UnmarshalText(text []byte) error {
-	gValue, err := formatCustomTime(string(text[:]))
+func (ct *Time) UnmarshalText(text []byte) error {
+	gValue, err := formatTime(string(text[:]))
 	if err != nil {
 		return err
 	}

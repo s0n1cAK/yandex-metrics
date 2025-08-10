@@ -10,8 +10,9 @@ import (
 
 func TestMemStorage_New(t *testing.T) {
 	storage := New()
-	require.Empty(t, storage.GetAll())
-	require.NotNil(t, storage)
+	s, err := storage.GetAll()
+	require.Empty(t, err)
+	require.NotNil(t, s)
 
 }
 
@@ -45,11 +46,12 @@ func TestMemStorage_SetGet(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			storage.Set(test.want.key, test.want.value)
 
-			value := storage.GetAll()["TestMetric"]
-			require.Equal(t, "TestMetric", value.ID)
-			require.Equal(t, models.Gauge, value.MType)
-			require.NotNil(t, value.Value)
-			require.InEpsilon(t, 0.41, *value.Value, 0.00001)
+			value, _ := storage.GetAll()
+			metric := value["TestMetric"]
+			require.Equal(t, "TestMetric", metric.ID)
+			require.Equal(t, models.Gauge, metric.MType)
+			require.NotNil(t, metric.Value)
+			require.InEpsilon(t, 0.41, *metric.Value, 0.00001)
 		})
 	}
 }

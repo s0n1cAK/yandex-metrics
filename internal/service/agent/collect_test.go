@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"testing"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
@@ -16,7 +17,8 @@ func TestAgent_CollectRuntime(t *testing.T) {
 
 	err := agent.CollectRuntime()
 	require.NoError(t, err)
-	require.NotEmpty(t, storage.GetAll())
+	s, _ := storage.GetAll()
+	require.NotEmpty(t, s)
 }
 
 func TestAgent_RandomValue(t *testing.T) {
@@ -27,9 +29,10 @@ func TestAgent_RandomValue(t *testing.T) {
 
 	err := agent.CollectRandomValue()
 	require.NoError(t, err)
-	require.NotEmpty(t, storage.GetAll())
+	s, _ := storage.GetAll()
+	require.NotEmpty(t, s)
 
-	metrics := storage.GetAll()
+	metrics, _ := storage.GetAll()
 	for _, metric := range metrics {
 		require.Equal(t, "RandomValue", metric.ID)
 		require.Equal(t, models.Gauge, metric.MType)
@@ -48,14 +51,17 @@ func TestAgent_Counter(t *testing.T) {
 
 	metric, ok := storage.Get("PollCount")
 	require.Equal(t, ok, true)
-	require.NotEmpty(t, storage.GetAll())
+	s, _ := storage.GetAll()
+	require.NotEmpty(t, s)
 	require.Equal(t, models.Counter, metric.MType)
 	require.Equal(t, int64(1), *metric.Delta)
 
+	fmt.Println(*metric.Delta)
 	err = agent.CollectIncrementCounter("PollCount", 1)
 	require.NoError(t, err)
 
 	metric, ok = storage.Get("PollCount")
+	fmt.Println(*metric.Delta)
 	require.Equal(t, ok, true)
 	require.Equal(t, int64(2), *metric.Delta)
 }

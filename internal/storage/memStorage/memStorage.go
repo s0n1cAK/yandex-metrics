@@ -47,9 +47,16 @@ func (s *MemStorage) Set(key string, value models.Metrics) error {
 		return fmt.Errorf("%s unsupported type of metric", value.MType)
 	}
 
-	sValue, ok := s.values[key]
-	if ok && sValue.MType != value.MType {
-		return fmt.Errorf("%s already in storage with type %s", sValue.ID, sValue.MType)
+	existing, exists := s.values[key]
+	if exists && existing.MType != value.MType {
+		return fmt.Errorf("%s already in storage with type %s", existing.ID, existing.MType)
+	}
+
+	if value.MType == models.Counter {
+		if old, ok := s.values[key]; ok && old.Delta != nil && value.Delta != nil {
+			sum := *old.Delta + *value.Delta
+			value.Delta = &sum
+		}
 	}
 
 	s.values[key] = value
@@ -63,7 +70,7 @@ func (s *MemStorage) Get(key string) (models.Metrics, bool) {
 	return deepCopy(val), ok
 }
 
-func (s *MemStorage) GetAll() map[string]models.Metrics {
+func (s *MemStorage) GetAll() (map[string]models.Metrics, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -72,16 +79,40 @@ func (s *MemStorage) GetAll() map[string]models.Metrics {
 	for name, data := range s.values {
 		metrics[name] = deepCopy(data)
 	}
-	return metrics
+	return metrics, nil
 }
 
-func (s *MemStorage) SetAll(metrics []models.Metrics) {
+func (s *MemStorage) SetAll(metrics []models.Metrics) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, value := range metrics {
-		err := s.Set(value.ID, value)
-		if err != nil {
-			fmt.Printf("ошибка при Set: %v\n", err)
+		if value.ID == "" {
+			return fmt.Errorf("metric has empty ID")
 		}
+		if value.MType != models.Gauge && value.MType != models.Counter {
+			return fmt.Errorf("unsupported type %s", value.MType)
+		}
+
+		existing, exists := s.values[value.ID]
+		if exists && existing.MType != value.MType {
+			return fmt.Errorf("type mismatch for %s: existing %s, new %s", value.ID, existing.MType, value.MType)
+		}
+
+		if value.MType == models.Counter {
+			var newDelta int64
+			if exists && existing.Delta != nil {
+				newDelta = *existing.Delta
+			}
+			if value.Delta != nil {
+				newDelta += *value.Delta
+			}
+			value.Delta = &newDelta
+		}
+
+		s.values[value.ID] = value
 	}
+	return nil
 }
 
 func (s *MemStorage) Clear() {

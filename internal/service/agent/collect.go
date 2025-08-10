@@ -105,19 +105,10 @@ func (agent *Agent) CollectRandomValue() error {
 func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
 	OP := "agent.CollectIncrementCounter"
 
-	metric, ok := agent.Storage.Get(ID)
-
-	var newDelta int64
-	if ok && metric.MType == models.Counter && metric.Delta != nil {
-		newDelta = *metric.Delta + value
-	} else {
-		newDelta = value
-	}
-	fmt.Println(metric, newDelta)
 	err := agent.Storage.Set(ID, models.Metrics{
 		ID:    ID,
 		MType: models.Counter,
-		Delta: lib.IntPtr(newDelta),
+		Delta: lib.IntPtr(value),
 	})
 	if err != nil {
 		return fmt.Errorf("%s: Error: %s", OP, err)

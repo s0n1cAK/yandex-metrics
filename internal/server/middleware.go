@@ -24,6 +24,7 @@ type (
 	loggingResponseWriter struct {
 		http.ResponseWriter
 		responseData *responseData
+		wroteHeader  bool
 	}
 
 	compressWriter struct {
@@ -38,11 +39,17 @@ type (
 )
 
 func (w *loggingResponseWriter) WriteHeader(statusCode int) {
-	w.responseData.status = statusCode
-	w.ResponseWriter.WriteHeader(statusCode)
+	if !w.wroteHeader {
+		w.responseData.status = statusCode
+		w.ResponseWriter.WriteHeader(statusCode)
+		w.wroteHeader = true
+	}
 }
 
 func (w *loggingResponseWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
 	size, err := w.ResponseWriter.Write(b)
 	w.responseData.size += size
 	return size, err
@@ -135,6 +142,7 @@ func gzipCompession() func(http.Handler) http.Handler {
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 			supportsGzip := strings.Contains(acceptEncoding, "gzip")
 			if supportsGzip {
+				w.Header().Set("Content-Encoding", "gzip")
 				cw := newCompressWriter(w)
 				ow = cw
 				defer cw.Close()

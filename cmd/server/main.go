@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/config"
+	config "github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
-	memStorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
+	"github.com/s0n1cAK/yandex-metrics/internal/storage"
+
 	"go.uber.org/zap"
 )
 
@@ -18,20 +22,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := config.NewServerConfig(log)
+	cfg, err := config.NewConfig(log)
 	if err != nil {
 		log.Fatal("failed to create server config", zap.Error(err))
 	}
 	defer cfg.Logger.Sync()
 
-	storage := memStorage.New()
+	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer appCancel()
 
-	srv, err := server.New(cfg, storage)
+	storage, err := storage.New(appCtx, cfg, log)
+	if err != nil {
+		log.Fatal("failed to create storage", zap.Error(err))
+	}
+
+	srv, err := server.New(&cfg, storage)
 	if err != nil {
 		log.Fatal("failed to create server", zap.Error(err))
 	}
 
-	err = srv.Start()
+	err = srv.Start(appCtx)
 	if err != nil {
 		log.Fatal("error while starting server", zap.Error(err))
 	}

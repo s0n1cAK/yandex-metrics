@@ -25,6 +25,7 @@ vendor/
 .idea
 .vscode
 
-server
-agent
-Metrics.data
+/Metrics.data
+/Notes
+/server
+/agent
