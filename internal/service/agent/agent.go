@@ -26,6 +26,7 @@ type Agent struct {
 	Client         *retryablehttp.Client
 	Server         string
 	Logger         *zap.Logger
+	Hash           string
 }
 
 func New(cfg agent.Config, storage Storage) *Agent {
@@ -34,6 +35,7 @@ func New(cfg agent.Config, storage Storage) *Agent {
 		Server:  cfg.Endpoint.String(),
 		Storage: storage,
 		Logger:  cfg.Logger,
+		Hash:    cfg.Hash,
 	}
 }
 

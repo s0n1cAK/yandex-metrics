@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/s0n1cAK/yandex-metrics/internal/hash"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
@@ -33,6 +34,8 @@ func (agent *Agent) Report() error {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
 
+	hash := hash.GetHashHex(payload, agent.Hash)
+
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 
@@ -52,8 +55,10 @@ func (agent *Agent) Report() error {
 	}
 
 	request.Close = true
+
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("HashSHA256", hash)
 
 	response, err := agent.Client.Do(request)
 	if err != nil {

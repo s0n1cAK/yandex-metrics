@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/hash"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
 	"go.uber.org/zap"
@@ -189,5 +190,34 @@ func writeMetrics(p *filestorage.Producer) func(http.Handler) http.Handler {
 				fmt.Printf("failed to write metric: %v\n", err)
 			}
 		})
+	}
+}
+
+func checkHash(key string) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		hash := func(w http.ResponseWriter, r *http.Request) {
+			gHash := r.Header.Get("HashSHA256")
+			gBody, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "unable to read body", http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(gBody))
+
+			bHash := hash.GetHashHex(gBody, key)
+
+			fmt.Println(key)
+			fmt.Println(bHash, gHash)
+
+			if !strings.EqualFold(gHash, bHash) {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			w.Header().Set("HashSHA256", bHash)
+			h.ServeHTTP(w, r)
+
+		}
+		return http.HandlerFunc(hash)
 	}
 }

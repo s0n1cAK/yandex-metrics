@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
-	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
@@ -44,31 +42,7 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 
 	OP := "Server.New"
 
-	if cfg.Logger == nil {
-		cfg.Logger, err = logger.NewLogger()
-		if err != nil {
-			return nil, fmt.Errorf("%s: %s", OP, err)
-		}
-	}
-
-	parts := strings.Split(cfg.Endpoint.HostPort(), ":")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("%s: invalid endpoint format", OP)
-	}
-
-	domain := parts[0]
-	port, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
-	}
-
-	if port <= minPort || port >= maxPort {
-		return nil, fmt.Errorf("%s: %v is not an valid port", OP, port)
-	}
-
-	if cfg.File == "" {
-		cfg.File = "Metrics.data"
-	}
+	domain, port, err := parseURL(cfg)
 
 	consumer, err = filestorage.NewConsumer(cfg.File)
 	if err != nil {
@@ -98,7 +72,19 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	svc := metrics.New(storage, pinger, cfg.Logger)
 
 	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
-	r.Post("/updates", httpx.SetBatchMetrics(svc))
+
+	// Кастыль т.к. проверка хеша нужна для updates, проблема в тестах
+	// hard code value https://github.com/Yandex-Practicum/go-autotests/blob/main/cmd/metricstest/iteration14_test.go#L58
+	r.Group(func(r chi.Router) {
+		if !strings.EqualFold(cfg.HashKey, "") {
+			cfg.Logger.Info("Используется hash валидация")
+			r.Use(checkHash(cfg.HashKey))
+		}
+		r.Route("/updates", func(r chi.Router) {
+			r.Post("/", httpx.SetBatchMetrics(svc))
+		})
+	})
+
 	r.Post("/update", httpx.SetMetricJSON(svc))
 	r.Post("/value", httpx.GetMetricJSON(svc))
 	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
