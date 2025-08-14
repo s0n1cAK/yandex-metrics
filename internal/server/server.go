@@ -43,6 +43,9 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	OP := "Server.New"
 
 	domain, port, err := parseURL(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", OP, err)
+	}
 
 	consumer, err = filestorage.NewConsumer(cfg.File)
 	if err != nil {
