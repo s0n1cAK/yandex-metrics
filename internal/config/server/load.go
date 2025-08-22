@@ -2,7 +2,6 @@ package server
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/caarlos0/env/v11"
@@ -34,8 +33,6 @@ func LoadConfig(fs *flag.FlagSet, args []string, logger *zap.Logger) (Config, er
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
-
-	fmt.Println(cfg.HashKey)
 
 	return cfg, nil
 }

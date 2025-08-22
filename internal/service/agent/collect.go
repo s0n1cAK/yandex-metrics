@@ -1,22 +1,20 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
 	"time"
 
-	"github.com/s0n1cAK/yandex-metrics/internal/lib"
-	models "github.com/s0n1cAK/yandex-metrics/internal/model"
+	"github.com/shirou/gopsutil/v4/mem"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	MetricNameRandomValue = "RandomValue"
 )
-
-// Лучше используй типизированные константы
-// Подумать как это лучше всего сделать;
 
 var runtimeMetrics = []string{
 	"Alloc",
@@ -56,46 +54,47 @@ func uniqMetric(m string) string {
 // тяжелый и медленный пакет
 func (agent *Agent) CollectRuntime() error {
 	OP := "agent.CollectRuntime"
-	for _, metirc := range runtimeMetrics {
-		var ms runtime.MemStats
-		runtime.ReadMemStats(&ms)
 
-		val := reflect.ValueOf(ms)
-		field := val.FieldByName(metirc)
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	val := reflect.ValueOf(ms)
 
-		var metircToReport float64
-		switch field.Kind() {
-		case reflect.Uint64:
-			metircToReport = float64(field.Uint())
-		case reflect.Uint32:
-			metircToReport = float64(field.Uint())
-		case reflect.Float64:
-			metircToReport = field.Float()
-		default:
-			return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
-		}
+	var g errgroup.Group
 
-		err := agent.Storage.Set(uniqMetric(metirc), models.Metrics{
-			ID:    metirc,
-			MType: models.Gauge,
-			Value: &metircToReport,
+	for _, metric := range runtimeMetrics {
+		g.Go(func() error {
+			field := val.FieldByName(metric)
+
+			var metricToReport float64
+			switch field.Kind() {
+			case reflect.Uint64:
+				metricToReport = float64(field.Uint())
+			case reflect.Uint32:
+				metricToReport = float64(field.Uint())
+			case reflect.Float64:
+				metricToReport = field.Float()
+			default:
+				return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
+			}
+
+			err := agent.updateGaugeMetruc(uniqMetric(metric), metricToReport)
+			if err != nil {
+				return fmt.Errorf("%s: Error: %s", OP, err)
+			}
+
+			return nil
 		})
-		if err != nil {
-			return fmt.Errorf("%s: Error: %s", OP, err)
-		}
+
 	}
-	return nil
+	return g.Wait()
 }
 
 func (agent *Agent) CollectRandomValue() error {
 	OP := "agent.CollectRandomValue"
 
 	randFloat := rand.Float64()
-	err := agent.Storage.Set(uniqMetric(MetricNameRandomValue), models.Metrics{
-		ID:    MetricNameRandomValue,
-		MType: models.Gauge,
-		Value: lib.FloatPtr(randFloat),
-	})
+
+	err := agent.updateGaugeMetruc(uniqMetric(MetricNameRandomValue), randFloat)
 	if err != nil {
 		return fmt.Errorf("%s: Error: %s", OP, err)
 	}
@@ -105,14 +104,39 @@ func (agent *Agent) CollectRandomValue() error {
 func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
 	OP := "agent.CollectIncrementCounter"
 
-	err := agent.Storage.Set(ID, models.Metrics{
-		ID:    ID,
-		MType: models.Counter,
-		Delta: lib.IntPtr(value),
-	})
+	err := agent.updateCounterMetruc(ID, value)
 	if err != nil {
 		return fmt.Errorf("%s: Error: %s", OP, err)
 	}
 
 	return nil
+}
+
+func (agent *Agent) CollectGopsutil(ctx context.Context, errs chan<- error) {
+	OP := "agent.CollectGopsutil"
+
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		errs <- fmt.Errorf("%s: Error: %s", OP, err)
+	}
+
+	totalMemoryValue := float64(v.Total)
+	freeMemoryValue := float64(v.Free)
+	usePersentValue := float64(v.UsedPercent)
+
+	err = agent.updateGaugeMetruc("TotalMemory", totalMemoryValue)
+	if err != nil {
+		errs <- fmt.Errorf("%s: Error: %s", OP, err)
+		return
+	}
+	err = agent.updateGaugeMetruc("FreeMemory", freeMemoryValue)
+	if err != nil {
+		errs <- fmt.Errorf("%s: Error: %s", OP, err)
+		return
+	}
+	err = agent.updateGaugeMetruc("CPUutilization1", usePersentValue)
+	if err != nil {
+		errs <- fmt.Errorf("%s: Error: %s", OP, err)
+		return
+	}
 }

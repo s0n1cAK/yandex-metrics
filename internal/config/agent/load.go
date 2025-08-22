@@ -17,6 +17,7 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 		PollInterval:   DefaultPollInterval,
 		Logger:         log,
 		Hash:           DefaultHashKey,
+		RateLimit:      DefaultRateLimit,
 	}
 
 	if err := env.Parse(&cfg); err != nil {
@@ -27,6 +28,7 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 	fs.Var(&cfg.ReportInterval, "r", "Report interval (e.g. 10s)")
 	fs.Var(&cfg.PollInterval, "p", "Poll interval (e.g. 2s)")
 	fs.StringVar(&cfg.Hash, "k", cfg.Hash, "Key to make hash")
+	fs.IntVar(&cfg.RateLimit, "l", cfg.RateLimit, "Request rate limit to server")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err

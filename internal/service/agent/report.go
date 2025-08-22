@@ -3,10 +3,12 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/hash"
@@ -48,8 +50,10 @@ func (agent *Agent) Report() error {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
 
-	// Подумать о переходе на resty, но для начала узначать в чем выгода
-	request, err := retryablehttp.NewRequest(http.MethodPost, endpoint, &buf)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	request, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, endpoint, &buf)
 	if err != nil {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
@@ -60,7 +64,7 @@ func (agent *Agent) Report() error {
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("HashSHA256", hash)
 
-	response, err := agent.Client.Do(request)
+	response, err := agent.requestWithLimit(ctx, request)
 	if err != nil {
 		return fmt.Errorf("%s: %s", OP, err)
 	}
@@ -79,4 +83,16 @@ func (agent *Agent) Report() error {
 	}
 
 	return nil
+}
+
+func (agent *Agent) requestWithLimit(ctx context.Context, req *retryablehttp.Request) (*http.Response, error) {
+	select {
+	case agent.httpLimiter <- struct{}{}:
+		defer func() {
+			<-agent.httpLimiter
+		}()
+		return agent.Client.Do(req)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

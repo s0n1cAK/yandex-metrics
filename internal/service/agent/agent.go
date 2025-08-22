@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
+	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -27,15 +29,17 @@ type Agent struct {
 	Server         string
 	Logger         *zap.Logger
 	Hash           string
+	httpLimiter    chan struct{}
 }
 
 func New(cfg agent.Config, storage Storage) *Agent {
 	return &Agent{
-		Client:  cfg.Client,
-		Server:  cfg.Endpoint.String(),
-		Storage: storage,
-		Logger:  cfg.Logger,
-		Hash:    cfg.Hash,
+		Client:      cfg.Client,
+		Server:      cfg.Endpoint.String(),
+		Storage:     storage,
+		Logger:      cfg.Logger,
+		Hash:        cfg.Hash,
+		httpLimiter: make(chan struct{}, cfg.RateLimit),
 	}
 }
 
@@ -60,6 +64,11 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	errs := make(chan error)
+
 	for {
 		select {
 		case <-pollTicker.C:
@@ -73,12 +82,34 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 				agent.Logger.Error("CollectIncrementCounter error:", zap.Error(err))
 			}
 
+			agent.CollectGopsutil(ctx, errs)
+
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
 			err := agent.Report()
 			if err != nil {
 				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
+		case err := <-errs:
+			agent.Logger.Error("Error while reporting from channel:", zap.Error(err))
 		}
 	}
+}
+
+func (agent *Agent) updateGaugeMetruc(name string, value float64) error {
+	err := agent.Storage.Set(name, models.Metrics{
+		ID:    name,
+		MType: models.Gauge,
+		Value: lib.FloatPtr(value),
+	})
+	return err
+}
+
+func (agent *Agent) updateCounterMetruc(name string, value int64) error {
+	err := agent.Storage.Set(name, models.Metrics{
+		ID:    name,
+		MType: models.Counter,
+		Delta: lib.IntPtr(value),
+	})
+	return err
 }

@@ -13,8 +13,9 @@ type Config struct {
 	Endpoint       customtype.Endpoint `env:"ADDRESS"`
 	ReportInterval customtype.Time     `env:"REPORT_INTERVAL"`
 	PollInterval   customtype.Time     `env:"POLL_INTERVAL"`
+	Hash           string              `env:"KEY"`
+	RateLimit      int                 `env:"RATE_LIMIT"`
 	Logger         *zap.Logger
-	Hash           string `env:"KEY"`
 }
 
 var (
@@ -22,4 +23,5 @@ var (
 	DefaultReportInterval = customtype.Time(10 * time.Second)
 	DefaultPollInterval   = customtype.Time(2 * time.Second)
 	DefaultHashKey        = ""
+	DefaultRateLimit      = 10
 )

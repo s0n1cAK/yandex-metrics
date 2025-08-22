@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"fmt"
 	"testing"
 
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
@@ -56,12 +55,10 @@ func TestAgent_Counter(t *testing.T) {
 	require.Equal(t, models.Counter, metric.MType)
 	require.Equal(t, int64(1), *metric.Delta)
 
-	fmt.Println(*metric.Delta)
 	err = agent.CollectIncrementCounter("PollCount", 1)
 	require.NoError(t, err)
 
 	metric, ok = storage.Get("PollCount")
-	fmt.Println(*metric.Delta)
 	require.Equal(t, ok, true)
 	require.Equal(t, int64(2), *metric.Delta)
 }

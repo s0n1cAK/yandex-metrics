@@ -206,9 +206,6 @@ func checkHash(key string) func(http.Handler) http.Handler {
 
 			bHash := hash.GetHashHex(gBody, key)
 
-			fmt.Println(key)
-			fmt.Println(bHash, gHash)
-
 			if !strings.EqualFold(gHash, bHash) {
 				w.WriteHeader(http.StatusBadRequest)
 				return
