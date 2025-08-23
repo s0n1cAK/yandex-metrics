@@ -55,13 +55,13 @@ func uniqMetric(m string) string {
 func (agent *Agent) CollectRuntime() error {
 	OP := "agent.CollectRuntime"
 
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-	val := reflect.ValueOf(ms)
-
 	var g errgroup.Group
 
 	for _, metric := range runtimeMetrics {
+		var ms runtime.MemStats
+		runtime.ReadMemStats(&ms)
+		val := reflect.ValueOf(ms)
+
 		g.Go(func() error {
 			field := val.FieldByName(metric)
 
@@ -77,7 +77,7 @@ func (agent *Agent) CollectRuntime() error {
 				return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
 			}
 
-			err := agent.updateGaugeMetruc(uniqMetric(metric), metricToReport)
+			err := agent.updateGaugeMetruc(metric, metricToReport)
 			if err != nil {
 				return fmt.Errorf("%s: Error: %s", OP, err)
 			}
@@ -94,7 +94,7 @@ func (agent *Agent) CollectRandomValue() error {
 
 	randFloat := rand.Float64()
 
-	err := agent.updateGaugeMetruc(uniqMetric(MetricNameRandomValue), randFloat)
+	err := agent.updateGaugeMetruc(MetricNameRandomValue, randFloat)
 	if err != nil {
 		return fmt.Errorf("%s: Error: %s", OP, err)
 	}

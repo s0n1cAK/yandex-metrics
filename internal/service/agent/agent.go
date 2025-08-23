@@ -97,7 +97,7 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 }
 
 func (agent *Agent) updateGaugeMetruc(name string, value float64) error {
-	err := agent.Storage.Set(name, models.Metrics{
+	err := agent.Storage.Set(uniqMetric(name), models.Metrics{
 		ID:    name,
 		MType: models.Gauge,
 		Value: lib.FloatPtr(value),
@@ -106,7 +106,7 @@ func (agent *Agent) updateGaugeMetruc(name string, value float64) error {
 }
 
 func (agent *Agent) updateCounterMetruc(name string, value int64) error {
-	err := agent.Storage.Set(name, models.Metrics{
+	err := agent.Storage.Set(uniqMetric(name), models.Metrics{
 		ID:    name,
 		MType: models.Counter,
 		Delta: lib.IntPtr(value),
