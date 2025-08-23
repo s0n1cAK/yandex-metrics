@@ -40,21 +40,21 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	var producer *filestorage.Producer
 	var err error
 
-	OP := "Server.New"
+	op := "Server.New"
 
 	domain, port, err := parseURL(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
+		return nil, fmt.Errorf("%s: %s", op, err)
 	}
 
 	consumer, err = filestorage.NewConsumer(cfg.File)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
+		return nil, fmt.Errorf("%s: %s", op, err)
 	}
 
 	producer, err = filestorage.NewProducer(cfg.File, cfg.StoreInterval.Duration())
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", OP, err)
+		return nil, fmt.Errorf("%s: %s", op, err)
 	}
 
 	r := chi.NewRouter()
@@ -115,14 +115,14 @@ func (c *Server) logStartupInfo() {
 }
 
 func (c *Server) restoreMetricsFromFile() error {
-	OP := "Server.Start.restoreMetricsFromFile"
+	op := "Server.Start.restoreMetricsFromFile"
 
 	if c.Config.Restore {
 		defer c.consumer.Close()
 
 		data, err := c.consumer.ReadFile()
 		if err != nil {
-			return fmt.Errorf("%s: %s", OP, err)
+			return fmt.Errorf("%s: %s", op, err)
 		}
 
 		c.Storage.SetAll(data)
@@ -207,7 +207,7 @@ func (c *Server) start() *http.Server {
 }
 
 func (c *Server) gracefulShutdown(ctx context.Context, srv *http.Server) error {
-	OP := "server.gracefulShutdown"
+	op := "server.gracefulShutdown"
 
 	<-ctx.Done()
 	if _, ok := c.Storage.(*memstorage.MemStorage); ok {
@@ -228,7 +228,7 @@ func (c *Server) gracefulShutdown(ctx context.Context, srv *http.Server) error {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("%s: Попытка остановки сервера завершилась с ошибкой: %w", OP, err)
+		return fmt.Errorf("%s: Попытка остановки сервера завершилась с ошибкой: %w", op, err)
 	}
 
 	return nil

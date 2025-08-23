@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"context"
 	"fmt"
 	"math/rand/v2"
 	"reflect"
@@ -53,7 +52,7 @@ func uniqMetric(m string) string {
 // В будущем переписать на структуры с нужными полями, которая будет заполняться, из-за того что reflect
 // тяжелый и медленный пакет
 func (agent *Agent) CollectRuntime() error {
-	OP := "agent.CollectRuntime"
+	op := "agent.CollectRuntime"
 
 	var g errgroup.Group
 
@@ -74,12 +73,12 @@ func (agent *Agent) CollectRuntime() error {
 			case reflect.Float64:
 				metricToReport = field.Float()
 			default:
-				return fmt.Errorf("%s: unsupported metric type: %s", OP, field.Kind())
+				return fmt.Errorf("%s: unsupported metric type: %s", op, field.Kind())
 			}
 
 			err := agent.updateGaugeMetruc(metric, metricToReport)
 			if err != nil {
-				return fmt.Errorf("%s: Error: %s", OP, err)
+				return fmt.Errorf("%s: Error: %w", op, err)
 			}
 
 			return nil
@@ -90,34 +89,34 @@ func (agent *Agent) CollectRuntime() error {
 }
 
 func (agent *Agent) CollectRandomValue() error {
-	OP := "agent.CollectRandomValue"
+	op := "agent.CollectRandomValue"
 
 	randFloat := rand.Float64()
 
 	err := agent.updateGaugeMetruc(MetricNameRandomValue, randFloat)
 	if err != nil {
-		return fmt.Errorf("%s: Error: %s", OP, err)
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
 	return nil
 }
 
 func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
-	OP := "agent.CollectIncrementCounter"
+	op := "agent.CollectIncrementCounter"
 
 	err := agent.updateCounterMetruc(ID, value)
 	if err != nil {
-		return fmt.Errorf("%s: Error: %s", OP, err)
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
 
 	return nil
 }
 
-func (agent *Agent) CollectGopsutil(ctx context.Context, errs chan<- error) {
-	OP := "agent.CollectGopsutil"
+func (agent *Agent) CollectGopsutil() error {
+	op := "agent.CollectGopsutil"
 
 	v, err := mem.VirtualMemory()
 	if err != nil {
-		errs <- fmt.Errorf("%s: Error: %s", OP, err)
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
 
 	totalMemoryValue := float64(v.Total)
@@ -126,17 +125,16 @@ func (agent *Agent) CollectGopsutil(ctx context.Context, errs chan<- error) {
 
 	err = agent.updateGaugeMetruc("TotalMemory", totalMemoryValue)
 	if err != nil {
-		errs <- fmt.Errorf("%s: Error: %s", OP, err)
-		return
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
 	err = agent.updateGaugeMetruc("FreeMemory", freeMemoryValue)
 	if err != nil {
-		errs <- fmt.Errorf("%s: Error: %s", OP, err)
-		return
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
 	err = agent.updateGaugeMetruc("CPUutilization1", usePersentValue)
 	if err != nil {
-		errs <- fmt.Errorf("%s: Error: %s", OP, err)
-		return
+		return fmt.Errorf("%s: Error: %w", op, err)
 	}
+
+	return nil
 }

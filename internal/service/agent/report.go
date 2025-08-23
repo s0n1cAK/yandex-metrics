@@ -16,11 +16,11 @@ import (
 )
 
 func (agent *Agent) Report() error {
-	OP := "Agent.Report"
+	op := "Agent.Report"
 
 	stotageMetrics, err := agent.Storage.GetAll()
 	if err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
 	metrics := make([]models.Metrics, 0, len(stotageMetrics))
@@ -33,21 +33,21 @@ func (agent *Agent) Report() error {
 
 	payload, err := json.Marshal(metrics)
 	if err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
-	hash := hash.GetHashHex(payload, agent.Hash)
+	hash := hash.GetHashHex(payload, agent.hash)
 
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 
 	_, err = gz.Write(payload)
 	if err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
 	if err := gz.Close(); err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -55,7 +55,7 @@ func (agent *Agent) Report() error {
 
 	request, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, endpoint, &buf)
 	if err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
 	request.Close = true
@@ -66,13 +66,13 @@ func (agent *Agent) Report() error {
 
 	response, err := agent.requestWithLimit(ctx, request)
 	if err != nil {
-		return fmt.Errorf("%s: %s", OP, err)
+		return fmt.Errorf("%s: %s", op, err)
 	}
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
 		response.Body.Close()
-		return fmt.Errorf("%s: bad status: %s; body: %s", OP, response.Status, string(body))
+		return fmt.Errorf("%s: bad status: %s; body: %s", op, response.Status, string(body))
 	}
 	response.Body.Close()
 

@@ -1,10 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
-	config "github.com/s0n1cAK/yandex-metrics/internal/config/agent"
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/agent"
 	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
@@ -14,24 +10,21 @@ import (
 func main() {
 	log, err := logger.NewLogger()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to init logger: %s \n", err)
-		os.Exit(1)
+		log.Fatal("failed to init logger", zap.Error(err))
 	}
 	defer log.Sync()
 
-	cfg, err := config.NewConfig(log)
-	if err != nil {
-		log.Fatal("Error while parsing env", zap.Error(err))
-	}
-
 	metricsStorage := memstorage.New()
 
-	agent := agent.New(cfg, metricsStorage)
+	agent := agent.New(log, metricsStorage)
 
 	log.Info("Agent started",
-		zap.String("endpoint", cfg.Endpoint.String()),
-		zap.Duration("poll_interval", cfg.PollInterval.Duration()),
-		zap.Duration("report_interval", cfg.ReportInterval.Duration()),
+		zap.String("endpoint", agent.Server),
+		zap.Duration("poll_interval", agent.PollInterval),
+		zap.Duration("report_interval", agent.ReportInterval),
 	)
-	agent.Run(cfg.PollInterval.Duration(), cfg.ReportInterval.Duration())
+	err = agent.Run()
+	if err != nil {
+		log.Fatal("Error: %w \n", zap.Error(err))
+	}
 }

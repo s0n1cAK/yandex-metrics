@@ -92,17 +92,17 @@ func (c *Consumer) Close() error {
 }
 
 func (c *Consumer) ReadFile() ([]models.Metrics, error) {
-	OP := "ReadFile"
+	op := "ReadFile"
 	var metrics []models.Metrics
 
 	_, err := c.file.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, fmt.Errorf("%s: seek error: %w", OP, err)
+		return nil, fmt.Errorf("%s: seek error: %w", op, err)
 	}
 
 	data, err := io.ReadAll(c.file)
 	if err != nil {
-		return nil, fmt.Errorf("%s: read error: %w", OP, err)
+		return nil, fmt.Errorf("%s: read error: %w", op, err)
 	}
 
 	if len(data) == 0 {
@@ -111,7 +111,7 @@ func (c *Consumer) ReadFile() ([]models.Metrics, error) {
 
 	err = json.Unmarshal(data, &metrics)
 	if err != nil {
-		return nil, fmt.Errorf("%s: json unmarshal error: %w", OP, err)
+		return nil, fmt.Errorf("%s: json unmarshal error: %w", op, err)
 	}
 
 	return metrics, nil
