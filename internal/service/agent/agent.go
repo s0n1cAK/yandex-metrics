@@ -54,15 +54,15 @@ func New(log *zap.Logger, storage Storage) *Agent {
 
 func (agent *Agent) Run() error {
 	if agent.PollInterval < time.Second {
-		return fmt.Errorf("Poll can't be lower that 2 seconds")
+		return fmt.Errorf("poll can't be lower that 2 seconds")
 	}
 
 	if agent.PollInterval > agent.ReportInterval {
-		return fmt.Errorf("Poll can't be higher that reportInterval")
+		return fmt.Errorf("poll can't be higher that reportInterval")
 	}
 
 	if agent.ReportInterval > fiveMinutes {
-		return fmt.Errorf("Report can't be higher that 5 minutes")
+		return fmt.Errorf("report can't be higher that 5 minutes")
 	}
 
 	pollTicker := time.NewTicker(agent.PollInterval)
