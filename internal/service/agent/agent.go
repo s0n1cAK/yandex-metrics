@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
+	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -22,38 +23,50 @@ type Storage interface {
 
 type Agent struct {
 	Storage        Storage
-	LastReportTime time.Duration
 	Client         *retryablehttp.Client
 	Server         string
 	Logger         *zap.Logger
+	hash           string
+	PollInterval   time.Duration
+	ReportInterval time.Duration
+	httpLimiter    chan struct{}
 }
 
-func New(cfg agent.Config, storage Storage) *Agent {
+func New(log *zap.Logger, storage Storage) *Agent {
+	cfg, err := agent.NewConfig(log)
+	if err != nil {
+		log.Fatal("Error while parsing env", zap.Error(err))
+	}
+
 	return &Agent{
-		Client:  cfg.Client,
-		Server:  cfg.Endpoint.String(),
-		Storage: storage,
-		Logger:  cfg.Logger,
+		Client:         cfg.Client,
+		Server:         cfg.Endpoint.String(),
+		Storage:        storage,
+		Logger:         cfg.Logger,
+		hash:           cfg.Hash,
+		PollInterval:   cfg.PollInterval.Duration(),
+		ReportInterval: cfg.ReportInterval.Duration(),
+		httpLimiter:    make(chan struct{}, cfg.RateLimit),
 	}
 }
 
 // https://gosamples.dev/range-over-ticker/
 
-func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
-	if pollInterval < time.Second {
-		return fmt.Errorf("PollInterval can't be lower that 2 seconds")
+func (agent *Agent) Run() error {
+	if agent.PollInterval < time.Second {
+		return fmt.Errorf("poll can't be lower that 2 seconds")
 	}
 
-	if pollInterval > reportInterval {
-		return fmt.Errorf("PollInterval can't be higher that reportInterval")
+	if agent.PollInterval > agent.ReportInterval {
+		return fmt.Errorf("poll can't be higher that reportInterval")
 	}
 
-	if reportInterval > fiveMinutes {
-		return fmt.Errorf("reportInterval can't be higher that 5 minutes")
+	if agent.ReportInterval > fiveMinutes {
+		return fmt.Errorf("report can't be higher that 5 minutes")
 	}
 
-	pollTicker := time.NewTicker(pollInterval)
-	reportTicker := time.NewTicker(reportInterval)
+	pollTicker := time.NewTicker(agent.PollInterval)
+	reportTicker := time.NewTicker(agent.ReportInterval)
 
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
@@ -70,6 +83,9 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 			if err := agent.CollectIncrementCounter("PollCount", 1); err != nil {
 				agent.Logger.Error("CollectIncrementCounter error:", zap.Error(err))
 			}
+			if err := agent.CollectGopsutil(); err != nil {
+				agent.Logger.Error("CollectGopsutil error:", zap.Error(err))
+			}
 
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
@@ -79,4 +95,22 @@ func (agent *Agent) Run(pollInterval, reportInterval time.Duration) error {
 			}
 		}
 	}
+}
+
+func (agent *Agent) updateGaugeMetruc(name string, value float64) error {
+	err := agent.Storage.Set(uniqMetric(name), models.Metrics{
+		ID:    name,
+		MType: models.Gauge,
+		Value: lib.FloatPtr(value),
+	})
+	return err
+}
+
+func (agent *Agent) updateCounterMetruc(name string, value int64) error {
+	err := agent.Storage.Set(uniqMetric(name), models.Metrics{
+		ID:    name,
+		MType: models.Counter,
+		Delta: lib.IntPtr(value),
+	})
+	return err
 }

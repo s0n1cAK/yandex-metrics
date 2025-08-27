@@ -14,6 +14,7 @@ type Config struct {
 	Restore       bool                `env:"RESTORE"`
 	DSN           customtype.DSN      `env:"DATABASE_DSN"`
 	Logger        *zap.Logger
+	HashKey       string `env:"KEY"`
 }
 
 var (

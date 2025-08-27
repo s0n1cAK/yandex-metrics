@@ -28,6 +28,7 @@ func LoadConfig(fs *flag.FlagSet, args []string, logger *zap.Logger) (Config, er
 	fs.StringVar(&cfg.File, "f", cfg.File, "Storage file path")
 	fs.BoolVar(&cfg.Restore, "r", cfg.Restore, "Restore metrics from file on start")
 	fs.Var(&cfg.DSN, "d", "Database DSN")
+	fs.StringVar(&cfg.HashKey, "k", cfg.HashKey, "Hash key to validate request from agent")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err

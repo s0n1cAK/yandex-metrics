@@ -95,12 +95,15 @@ func (s *service) SetBatch(ctx context.Context, batch []models.Metrics) error {
 		return domain.ErrInvalidPayload
 	}
 	for _, m := range batch {
+
 		switch m.MType {
 		case models.Gauge:
+			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Float64("Value", *m.Value))
 			if m.ID == "" || m.Value == nil {
 				return domain.ErrInvalidPayload
 			}
 		case models.Counter:
+			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Int64("Value", *m.Delta))
 			if m.ID == "" || m.Delta == nil || *m.Delta == 0 {
 				return domain.ErrInvalidPayload
 			}
