@@ -7,20 +7,6 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
-func deepCopy(metrics models.Metrics) models.Metrics {
-	clone := metrics
-	if metrics.Delta != nil {
-		d := *metrics.Delta
-		clone.Delta = &d
-	}
-	if metrics.Value != nil {
-		v := *metrics.Value
-		clone.Value = &v
-	}
-	return clone
-
-}
-
 type MemStorage struct {
 	values map[string]models.Metrics
 	mu     sync.RWMutex
@@ -67,7 +53,7 @@ func (s *MemStorage) Get(key string) (models.Metrics, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.values[key]
-	return deepCopy(val), ok
+	return val, ok
 }
 
 func (s *MemStorage) GetAll() (map[string]models.Metrics, error) {
@@ -75,9 +61,8 @@ func (s *MemStorage) GetAll() (map[string]models.Metrics, error) {
 	defer s.mu.RUnlock()
 
 	metrics := make(map[string]models.Metrics, len(s.values))
-
 	for name, data := range s.values {
-		metrics[name] = deepCopy(data)
+		metrics[name] = data
 	}
 	return metrics, nil
 }
