@@ -1,4 +1,16 @@
 services:
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: test@test.com
+      PGADMIN_DEFAULT_PASSWORD: test
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+
   db:
     container_name: postgres
     image: postgres:16
@@ -19,9 +31,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      
 networks:
   db:
     driver: bridge
 
 volumes:
   db:
+  pgadmin:

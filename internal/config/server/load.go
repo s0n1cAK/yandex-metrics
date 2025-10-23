@@ -1,15 +1,15 @@
 package server
 
 import (
-	"flag"
 	"os"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/s0n1cAK/yandex-metrics/internal/customtype"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 )
 
-func LoadConfig(fs *flag.FlagSet, args []string, logger *zap.Logger) (Config, error) {
+func LoadConfig(fs *pflag.FlagSet, args []string, logger *zap.Logger) (Config, error) {
 	cfg := Config{
 		Endpoint:      DefaultEndpoint,
 		StoreInterval: DefaultStoreInterval,
@@ -23,12 +23,15 @@ func LoadConfig(fs *flag.FlagSet, args []string, logger *zap.Logger) (Config, er
 		return Config{}, err
 	}
 
-	fs.Var(&cfg.Endpoint, "a", "Server listen address, e.g. http://host:port")
-	fs.Var(&cfg.StoreInterval, "i", "Store interval (e.g. 5m)")
-	fs.StringVar(&cfg.File, "f", cfg.File, "Storage file path")
-	fs.BoolVar(&cfg.Restore, "r", cfg.Restore, "Restore metrics from file on start")
-	fs.Var(&cfg.DSN, "d", "Database DSN")
-	fs.StringVar(&cfg.HashKey, "k", cfg.HashKey, "Hash key to validate request from agent")
+	fs.VarP(&cfg.Endpoint, "endpoint", "a", "Server listen address, e.g. http://host:port")
+	fs.VarP(&cfg.StoreInterval, "store-interval", "i", "Store interval (e.g. 5m)")
+	fs.StringVarP(&cfg.File, "file", "f", cfg.File, "Storage file path")
+	fs.BoolVarP(&cfg.Restore, "restore", "r", cfg.Restore, "Restore metrics from file on start")
+	fs.VarP(&cfg.DSN, "dsn", "d", "Database DSN")
+	fs.StringVarP(&cfg.HashKey, "hash-key", "k", cfg.HashKey, "Hash key to validate request from agent")
+
+	fs.StringVar(&cfg.AuditFile, "audit-file", cfg.AuditFile, "Path to audit file")
+	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "URL of audit endpoint")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
@@ -38,5 +41,5 @@ func LoadConfig(fs *flag.FlagSet, args []string, logger *zap.Logger) (Config, er
 }
 
 func NewConfig(log *zap.Logger) (Config, error) {
-	return LoadConfig(flag.CommandLine, os.Args[1:], log)
+	return LoadConfig(pflag.CommandLine, os.Args[1:], log)
 }
