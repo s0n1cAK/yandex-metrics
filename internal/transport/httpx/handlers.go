@@ -13,6 +13,9 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 )
 
+// SetMetricURL возвращает HTTP-обработчик для обновления метрики через URL-параметры.
+// Принимает тип метрики, имя и значение в URL и устанавливает новое значение метрики.
+// Пример: POST /update/counter/requests/10
 func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
@@ -31,6 +34,9 @@ func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// SetMetricJSON возвращает HTTP-обработчик для обновления метрики через JSON-тело запроса.
+// Принимает метрику в формате JSON и устанавливает новое значение.
+// Пример: POST /update {"id":"requests","type":"counter","delta":1}
 func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
@@ -50,6 +56,9 @@ func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// SetBatchMetrics возвращает HTTP-обработчик для обновления нескольких метрик за один запрос.
+// Принимает массив метрик в формате JSON и устанавливает их значения.
+// Пример: POST /updates [{"id":"requests","type":"counter","delta":1},{"id":"cpu","type":"gauge","value":0.7}]
 func SetBatchMetrics(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
@@ -68,6 +77,9 @@ func SetBatchMetrics(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// GetMetricJSON возвращает HTTP-обработчик для получения метрики в формате JSON.
+// Принимает запрашиваемую метрику в формате JSON и возвращает её текущее значение.
+// Пример: POST /value {"id":"requests","type":"counter"}
 func GetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		m, err := BindMetricFromJSON(r)
@@ -86,6 +98,9 @@ func GetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// GetMetric возвращает HTTP-обработчик для получения метрики через URL-параметры.
+// Принимает тип и имя метрики в URL и возвращает её текущее значение.
+// Пример: GET /value/counter/requests
 func GetMetric(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "metric")
@@ -110,6 +125,8 @@ func GetMetric(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// GetMetrics возвращает HTTP-обработчик для получения всех метрик.
+// Возвращает список всех зарегистрированных метрик в формате JSON.
 func GetMetrics(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, err := svc.ListIDs(r.Context())
@@ -123,6 +140,8 @@ func GetMetrics(svc metrics.Service) http.HandlerFunc {
 	}
 }
 
+// Ping возвращает HTTP-обработчик для проверки доступности сервера.
+// Проверяет подключение к базе данных (если используется) и возвращает статус.
 func Ping(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)

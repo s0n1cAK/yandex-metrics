@@ -12,22 +12,35 @@ import (
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
+// Repository интерфейс определяет контракт для хранилища метрик.
 type Repository interface {
+	// Set устанавливает значение метрики с указанным идентификатором
 	Set(id string, m models.Metrics) error
+	// Get возвращает метрику с указанным идентификатором и флаг существования
 	Get(id string) (models.Metrics, bool)
+	// GetAll возвращает все метрики в хранилище
 	GetAll() (map[string]models.Metrics, error)
+	// SetAll устанавливает значения для пакета метрик
 	SetAll(batch []models.Metrics) error
 }
 
+// Pinger интерфейс определяет контракт для проверки подключения к базе данных.
 type Pinger interface {
+	// Ping проверяет доступность базы данных
 	Ping(ctx context.Context) error
 }
 
+// Service интерфейс определяет контракт для бизнес-логики метрик.
 type Service interface {
+	// Set устанавливает значение метрики
 	Set(ctx context.Context, m models.Metrics, ip string) error
+	// SetBatch устанавливает значения для пакета метрик
 	SetBatch(ctx context.Context, batch []models.Metrics, ip string) error
+	// Get возвращает значение метрики по идентификатору и типу
 	Get(ctx context.Context, id, mtype string) (models.Metrics, error)
+	// ListIDs возвращает список всех идентификаторов метрик
 	ListIDs(ctx context.Context) ([]string, error)
+	// Ping проверяет доступность базы данных
 	Ping(ctx context.Context) error
 }
 
@@ -38,6 +51,7 @@ type service struct {
 	publisher audit.AuditPublisher
 }
 
+// New создает новый экземпляр сервиса метрик с заданными зависимостями.
 func New(repo Repository, ping Pinger, log *zap.Logger, publisher audit.AuditPublisher) Service {
 	return &service{repo: repo, ping: ping, log: log, publisher: publisher}
 }
