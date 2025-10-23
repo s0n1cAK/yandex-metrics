@@ -60,7 +60,7 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	}
 
 	if cfg.AuditURL != "" {
-		publisher.Register(audit.NewHttpAuditObserver(cfg.AuditURL))
+		publisher.Register(audit.NewHTTPAuditObserver(cfg.AuditURL))
 	}
 
 	op := "Server.New"

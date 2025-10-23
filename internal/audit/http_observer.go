@@ -8,15 +8,15 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/model"
 )
 
-type HttpAuditObserver struct {
+type HTTPAuditObserver struct {
 	url string
 }
 
-func NewHttpAuditObserver(url string) *HttpAuditObserver {
-	return &HttpAuditObserver{url: url}
+func NewHTTPAuditObserver(url string) *HTTPAuditObserver {
+	return &HTTPAuditObserver{url: url}
 }
 
-func (h *HttpAuditObserver) Notify(event model.AuditEvent) error {
+func (h *HTTPAuditObserver) Notify(event model.AuditEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err

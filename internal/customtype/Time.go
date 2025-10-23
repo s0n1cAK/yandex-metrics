@@ -39,7 +39,7 @@ func (ct *Time) String() string {
 	return time.Duration(*ct).String()
 }
 
-func (e *Time) Type() string {
+func (ct *Time) Type() string {
 	return "time"
 }
 
