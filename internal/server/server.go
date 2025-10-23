@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/s0n1cAK/yandex-metrics/internal/audit"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
@@ -40,6 +42,16 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	var producer *filestorage.Producer
 	var err error
 
+	publisher := audit.AuditPublisher{}
+
+	if cfg.AuditFile != "" {
+		publisher.Register(audit.NewFileAuditObserver(cfg.AuditFile))
+	}
+
+	if cfg.AuditURL != "" {
+		publisher.Register(audit.NewHttpAuditObserver(cfg.AuditURL))
+	}
+
 	op := "Server.New"
 
 	domain, port, err := parseURL(cfg)
@@ -70,11 +82,14 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		r.Use(writeMetrics(producer))
 	}
 
+	r.Mount("/debug", http.DefaultServeMux)
+
 	pinger := db.NewPinger(cfg.DSN)
 
-	svc := metrics.New(storage, pinger, cfg.Logger)
+	svc := metrics.New(storage, pinger, cfg.Logger, publisher)
 
 	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
+	r.Post("/update", httpx.SetMetricJSON(svc))
 
 	// Кастыль т.к. проверка хеша нужна для updates, проблема в тестах
 	// hard code value https://github.com/Yandex-Practicum/go-autotests/blob/main/cmd/metricstest/iteration14_test.go#L58
@@ -88,10 +103,11 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		})
 	})
 
-	r.Post("/update", httpx.SetMetricJSON(svc))
-	r.Post("/value", httpx.GetMetricJSON(svc))
-	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
 	r.Get("/", httpx.GetMetrics(svc))
+
+	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
+	r.Post("/value", httpx.GetMetricJSON(svc))
+
 	r.Get("/ping", httpx.Ping(svc))
 
 	return &Server{

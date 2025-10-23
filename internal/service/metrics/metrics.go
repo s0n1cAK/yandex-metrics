@@ -3,9 +3,11 @@ package metrics
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/s0n1cAK/yandex-metrics/internal/audit"
 	"github.com/s0n1cAK/yandex-metrics/internal/domain"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
@@ -22,24 +24,25 @@ type Pinger interface {
 }
 
 type Service interface {
-	Set(ctx context.Context, m models.Metrics) error
+	Set(ctx context.Context, m models.Metrics, ip string) error
+	SetBatch(ctx context.Context, batch []models.Metrics, ip string) error
 	Get(ctx context.Context, id, mtype string) (models.Metrics, error)
 	ListIDs(ctx context.Context) ([]string, error)
-	SetBatch(ctx context.Context, batch []models.Metrics) error
 	Ping(ctx context.Context) error
 }
 
 type service struct {
-	repo Repository
-	ping Pinger
-	log  *zap.Logger
+	repo      Repository
+	ping      Pinger
+	log       *zap.Logger
+	publisher audit.AuditPublisher
 }
 
-func New(repo Repository, ping Pinger, log *zap.Logger) Service {
-	return &service{repo: repo, ping: ping, log: log}
+func New(repo Repository, ping Pinger, log *zap.Logger, publisher audit.AuditPublisher) Service {
+	return &service{repo: repo, ping: ping, log: log, publisher: publisher}
 }
 
-func (s *service) Set(ctx context.Context, m models.Metrics) error {
+func (s *service) Set(ctx context.Context, m models.Metrics, ip string) error {
 	if m.ID == "" {
 		return domain.ErrInvalidPayload
 	}
@@ -60,8 +63,36 @@ func (s *service) Set(ctx context.Context, m models.Metrics) error {
 		s.log.Error(err.Error())
 		return err
 	}
+
+	s.notify([]models.Metrics{m}, ip)
 	s.log.Info("metric set", zap.String("id", m.ID), zap.String("type", m.MType))
 	return nil
+}
+
+func (s *service) SetBatch(ctx context.Context, batch []models.Metrics, ip string) error {
+	if len(batch) == 0 {
+		return domain.ErrInvalidPayload
+	}
+	for _, m := range batch {
+
+		switch m.MType {
+		case models.Gauge:
+			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Float64("Value", *m.Value))
+			if m.ID == "" || m.Value == nil {
+				return domain.ErrInvalidPayload
+			}
+		case models.Counter:
+			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Int64("Value", *m.Delta))
+			if m.ID == "" || m.Delta == nil || *m.Delta == 0 {
+				return domain.ErrInvalidPayload
+			}
+		default:
+			return domain.ErrInvalidType
+		}
+	}
+
+	s.notify(batch, ip)
+	return s.repo.SetAll(batch)
 }
 
 func (s *service) Get(ctx context.Context, id, mtype string) (models.Metrics, error) {
@@ -90,33 +121,17 @@ func (s *service) ListIDs(ctx context.Context) ([]string, error) {
 	return ids, nil
 }
 
-func (s *service) SetBatch(ctx context.Context, batch []models.Metrics) error {
-	if len(batch) == 0 {
-		return domain.ErrInvalidPayload
-	}
-	for _, m := range batch {
-
-		switch m.MType {
-		case models.Gauge:
-			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Float64("Value", *m.Value))
-			if m.ID == "" || m.Value == nil {
-				return domain.ErrInvalidPayload
-			}
-		case models.Counter:
-			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Int64("Value", *m.Delta))
-			if m.ID == "" || m.Delta == nil || *m.Delta == 0 {
-				return domain.ErrInvalidPayload
-			}
-		default:
-			return domain.ErrInvalidType
-		}
-	}
-	return s.repo.SetAll(batch)
-}
-
 func (s *service) Ping(ctx context.Context) error {
 	if s.ping == nil {
 		return errors.New("no pinger configured")
 	}
 	return s.ping.Ping(ctx)
+}
+
+func (s *service) notify(metrics []models.Metrics, ip string) {
+	s.publisher.Publish(models.AuditEvent{
+		TS:        time.Now().Unix(),
+		Metrics:   metrics,
+		IPAddress: ip,
+	})
 }

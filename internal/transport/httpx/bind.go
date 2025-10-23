@@ -51,18 +51,12 @@ func BindMetricFromURL(r *http.Request) (models.Metrics, error) {
 }
 
 func BindMetricFromJSON(r *http.Request) (models.Metrics, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return models.Metrics{}, err
-	}
-	defer r.Body.Close()
-
-	if len(body) == 0 {
-		return models.Metrics{}, domain.ErrInvalidPayload
-	}
+	// Limit the size of the request body to prevent excessive memory allocation
+	const maxBodySize = 1024 * 1024 // 1MB limit
+	lr := io.LimitReader(r.Body, maxBodySize)
 
 	var m models.Metrics
-	if err := json.Unmarshal(body, &m); err != nil {
+	if err := json.NewDecoder(lr).Decode(&m); err != nil {
 		return models.Metrics{}, domain.ErrInvalidPayload
 	}
 	if m.ID == "" || m.MType == "" {
@@ -72,18 +66,12 @@ func BindMetricFromJSON(r *http.Request) (models.Metrics, error) {
 }
 
 func BindBatchFromJSON(r *http.Request) ([]models.Metrics, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-
-	if len(body) == 0 {
-		return nil, domain.ErrInvalidPayload
-	}
+	// Limit the size of the request body to prevent excessive memory allocation
+	const maxBodySize = 10 * 1024 * 1024 // 10MB limit
+	lr := io.LimitReader(r.Body, maxBodySize)
 
 	var batch []models.Metrics
-	if err := json.Unmarshal(body, &batch); err != nil {
+	if err := json.NewDecoder(lr).Decode(&batch); err != nil {
 		return nil, domain.ErrInvalidPayload
 	}
 	if len(batch) == 0 {
