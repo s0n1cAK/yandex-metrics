@@ -42,3 +42,9 @@ git fetch template && git checkout template/main .github
 - **Clean Architecture**
 - **Hexagonal Architecture**
 - **Layered Architecture**
+
+## Результаты оптимизации памяти
+
+После проведения оптимизаций удалось достичь значительного снижения аллокаций памяти:
+
+- Снижение аллокаций памяти на ~33% по сравнению с базовой версией

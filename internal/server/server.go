@@ -27,16 +27,27 @@ const (
 	maxPort = 65535
 )
 
+// Server представляет HTTP-сервер для сервиса метрик.
 type Server struct {
-	Address  string
-	Port     int
-	Router   *chi.Mux
-	Config   *server.Config
-	Storage  storage.BasicStorage
+	// Address - адрес домена, к которому привязывается сервер
+	Address string
+	// Port - номер порта, к которому привязывается сервер
+	Port int
+	// Router - HTTP-маршрутизатор, используемый сервером
+	Router *chi.Mux
+	// Config содержит конфигурацию сервера
+	Config *server.Config
+	// Storage - бэкенд хранилища, используемый сервером
+	Storage storage.BasicStorage
+	// consumer используется для чтения метрик из файлового хранилища
 	consumer *filestorage.Consumer
+	// producer используется для записи метрик в файловое хранилище
 	producer *filestorage.Producer
 }
 
+// New создает новый экземпляр Server с заданной конфигурацией и хранилищем.
+// Настраивает HTTP-маршрутизатор со всеми необходимыми конечными точками и промежуточным ПО.
+// Сервер поддерживает как файловое, так и базы данных хранилища.
 func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	var consumer *filestorage.Consumer
 	var producer *filestorage.Producer
@@ -168,6 +179,11 @@ func (c *Server) scheduleFilePersistence() error {
 	return nil
 }
 
+// Start запускает HTTP-сервер и начинает прослушивание входящих запросов.
+// Обрабатывает плавный запуск, включая восстановление метрик из файла (если настроено),
+// выполнение миграций базы данных (при использовании хранилища PostgreSQL) и планирование
+// периодического сохранения в файл (при использовании in-memory хранилища).
+// Сервер будет продолжать работу до тех пор, пока контекст не будет отменен.
 func (c *Server) Start(ctx context.Context) error {
 	var err error
 
