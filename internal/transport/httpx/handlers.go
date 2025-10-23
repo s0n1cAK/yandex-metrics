@@ -15,12 +15,14 @@ import (
 
 func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+
 		m, err := BindMetricFromURL(r)
 		if err != nil {
 			WriteError(w, err)
 			return
 		}
-		if err := svc.Set(r.Context(), m); err != nil {
+		if err := svc.Set(r.Context(), m, ip); err != nil {
 			WriteError(w, err)
 			return
 		}
@@ -31,12 +33,14 @@ func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 
 func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+
 		m, err := BindMetricFromJSON(r)
 		if err != nil {
 			WriteError(w, err)
 			return
 		}
-		if err := svc.Set(r.Context(), m); err != nil {
+		if err := svc.Set(r.Context(), m, ip); err != nil {
 			WriteError(w, err)
 			return
 		}
@@ -48,12 +52,14 @@ func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 
 func SetBatchMetrics(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+
 		batch, err := BindBatchFromJSON(r)
 		if err != nil {
 			WriteError(w, err)
 			return
 		}
-		if err := svc.SetBatch(r.Context(), batch); err != nil {
+		if err := svc.SetBatch(r.Context(), batch, ip); err != nil {
 			WriteError(w, err)
 			return
 		}

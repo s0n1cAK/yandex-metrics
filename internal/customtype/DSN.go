@@ -18,6 +18,10 @@ func (e *DSN) String() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", e.User, e.Password, e.Host, e.Port, e.Name, e.SSLMode)
 }
 
+func (e *DSN) Type() string {
+	return "DSN"
+}
+
 func formatDSN(value string) (DSN, error) {
 	var dsn DSN
 	uri, err := url.Parse(value)

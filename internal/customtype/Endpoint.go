@@ -36,6 +36,10 @@ func (e *Endpoint) String() string {
 	return string(*e)
 }
 
+func (e *Endpoint) Type() string {
+	return "endpoint"
+}
+
 func (e *Endpoint) Set(value string) error {
 	gValue, err := formatEndpoint(string(value[:]))
 	if err != nil {
