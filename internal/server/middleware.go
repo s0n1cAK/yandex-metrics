@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -190,7 +189,8 @@ func writeMetrics(p *filestorage.Producer) func(http.Handler) http.Handler {
 				var metric models.Metrics
 				if err := json.Unmarshal(buf.Bytes(), &metric); err == nil {
 					if err := p.WriteMetric(metric); err != nil {
-						fmt.Printf("failed to write metric: %v\n", err)
+						w.WriteHeader(http.StatusInternalServerError)
+						return
 					}
 				}
 			}

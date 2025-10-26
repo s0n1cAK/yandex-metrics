@@ -143,9 +143,12 @@ func (s *service) Ping(ctx context.Context) error {
 }
 
 func (s *service) notify(metrics []models.Metrics, ip string) {
-	s.publisher.Publish(models.AuditEvent{
+	err := s.publisher.Publish(models.AuditEvent{
 		TS:        time.Now().Unix(),
 		Metrics:   metrics,
 		IPAddress: ip,
 	})
+	if err != nil {
+		s.log.Error(err.Error())
+	}
 }
