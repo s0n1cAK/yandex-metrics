@@ -47,7 +47,6 @@ func runCallLinter(pass *analysis.Pass, n ast.Node) bool {
 
 // isInsideMainFunction проверяет, находится ли узел внутри функции main пакета main
 func isInsideMainFunction(pass *analysis.Pass, node ast.Node) bool {
-	// Проверяем, что пакет называется main
 	if pass.Pkg.Name() != "main" {
 		return false
 	}
@@ -55,32 +54,24 @@ func isInsideMainFunction(pass *analysis.Pass, node ast.Node) bool {
 	nodePos := node.Pos()
 	found := false
 
-	// Ищем функцию main в файлах пакета
 	for _, f := range pass.Files {
 		ast.Inspect(f, func(n ast.Node) bool {
+			if found {
+				return false
+			}
+
 			funcDecl, ok := n.(*ast.FuncDecl)
-			if !ok {
+			if !ok || funcDecl.Name == nil || funcDecl.Name.Name != "main" || funcDecl.Body == nil {
 				return true
 			}
 
-			// Проверяем, что это функция main
-			if funcDecl.Name == nil || funcDecl.Name.Name != "main" {
-				return true
-			}
-
-			// Проверяем, что узел находится внутри тела функции main
-			if funcDecl.Body == nil {
-				return true
-			}
-
-			bodyStart := funcDecl.Body.Pos()
-			bodyEnd := funcDecl.Body.End()
-			if nodePos >= bodyStart && nodePos <= bodyEnd {
+			if nodePos >= funcDecl.Body.Pos() && nodePos <= funcDecl.Body.End() {
 				found = true
-				return false // останавливаем обход, так как нашли
 			}
-			return true
+
+			return false
 		})
+
 		if found {
 			break
 		}

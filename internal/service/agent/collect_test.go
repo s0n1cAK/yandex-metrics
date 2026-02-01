@@ -41,17 +41,13 @@ func TestAgent_RandomValue(t *testing.T) {
 
 func TestAgent_Counter(t *testing.T) {
 	storage := memstorage.New()
-	agent := &Agent{
-		Storage: storage,
-	}
+	agent := &Agent{Storage: storage}
 
 	err := agent.CollectIncrementCounter("PollCount", 1)
 	require.NoError(t, err)
 
 	metric, ok := storage.Get("PollCount")
-	require.Equal(t, ok, true)
-	s, _ := storage.GetAll()
-	require.NotEmpty(t, s)
+	require.True(t, ok)
 	require.Equal(t, models.Counter, metric.MType)
 	require.Equal(t, int64(1), *metric.Delta)
 
@@ -59,6 +55,6 @@ func TestAgent_Counter(t *testing.T) {
 	require.NoError(t, err)
 
 	metric, ok = storage.Get("PollCount")
-	require.Equal(t, ok, true)
+	require.True(t, ok)
 	require.Equal(t, int64(2), *metric.Delta)
 }

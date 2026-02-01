@@ -15,7 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
-var buildVersion, buildDate, buildCommit string
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
 
 func main() {
 	printMetaInfo()
@@ -53,20 +57,6 @@ func main() {
 }
 
 func printMetaInfo() {
-	var defaultInfo = "N/A"
-
-	if buildVersion == "" {
-		buildVersion = defaultInfo
-	}
-
-	if buildDate == "" {
-		buildDate = defaultInfo
-	}
-
-	if buildCommit == "" {
-		buildCommit = defaultInfo
-	}
-
 	fmt.Println("Build version: ", buildVersion)
 	fmt.Println("Build date: ", buildDate)
 	fmt.Println("Build commit: ", buildCommit)
