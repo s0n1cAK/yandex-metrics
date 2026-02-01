@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/s0n1cAK/yandex-metrics/internal/audit"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
@@ -25,20 +27,41 @@ const (
 	maxPort = 65535
 )
 
+// Server представляет HTTP-сервер для сервиса метрик.
 type Server struct {
-	Address  string
-	Port     int
-	Router   *chi.Mux
-	Config   *server.Config
-	Storage  storage.BasicStorage
+	// Address - адрес домена, к которому привязывается сервер
+	Address string
+	// Port - номер порта, к которому привязывается сервер
+	Port int
+	// Router - HTTP-маршрутизатор, используемый сервером
+	Router *chi.Mux
+	// Config содержит конфигурацию сервера
+	Config *server.Config
+	// Storage - бэкенд хранилища, используемый сервером
+	Storage storage.BasicStorage
+	// consumer используется для чтения метрик из файлового хранилища
 	consumer *filestorage.Consumer
+	// producer используется для записи метрик в файловое хранилище
 	producer *filestorage.Producer
 }
 
+// New создает новый экземпляр Server с заданной конфигурацией и хранилищем.
+// Настраивает HTTP-маршрутизатор со всеми необходимыми конечными точками и промежуточным ПО.
+// Сервер поддерживает как файловое, так и базы данных хранилища.
 func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	var consumer *filestorage.Consumer
 	var producer *filestorage.Producer
 	var err error
+
+	publisher := audit.AuditPublisher{}
+
+	if cfg.AuditFile != "" {
+		publisher.Register(audit.NewFileAuditObserver(cfg.AuditFile))
+	}
+
+	if cfg.AuditURL != "" {
+		publisher.Register(audit.NewHTTPAuditObserver(cfg.AuditURL))
+	}
 
 	op := "Server.New"
 
@@ -70,11 +93,14 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		r.Use(writeMetrics(producer))
 	}
 
+	r.Mount("/debug", http.DefaultServeMux)
+
 	pinger := db.NewPinger(cfg.DSN)
 
-	svc := metrics.New(storage, pinger, cfg.Logger)
+	svc := metrics.New(storage, pinger, cfg.Logger, publisher)
 
 	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
+	r.Post("/update", httpx.SetMetricJSON(svc))
 
 	// Кастыль т.к. проверка хеша нужна для updates, проблема в тестах
 	// hard code value https://github.com/Yandex-Practicum/go-autotests/blob/main/cmd/metricstest/iteration14_test.go#L58
@@ -88,10 +114,11 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		})
 	})
 
-	r.Post("/update", httpx.SetMetricJSON(svc))
-	r.Post("/value", httpx.GetMetricJSON(svc))
-	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
 	r.Get("/", httpx.GetMetrics(svc))
+
+	r.Get("/value/{type}/{metric}", httpx.GetMetric(svc))
+	r.Post("/value", httpx.GetMetricJSON(svc))
+
 	r.Get("/ping", httpx.Ping(svc))
 
 	return &Server{
@@ -152,6 +179,11 @@ func (c *Server) scheduleFilePersistence() error {
 	return nil
 }
 
+// Start запускает HTTP-сервер и начинает прослушивание входящих запросов.
+// Обрабатывает плавный запуск, включая восстановление метрик из файла (если настроено),
+// выполнение миграций базы данных (при использовании хранилища PostgreSQL) и планирование
+// периодического сохранения в файл (при использовании in-memory хранилища).
+// Сервер будет продолжать работу до тех пор, пока контекст не будет отменен.
 func (c *Server) Start(ctx context.Context) error {
 	var err error
 

@@ -13,8 +13,10 @@ type Config struct {
 	File          string              `env:"FILE_STORAGE_PATH"`
 	Restore       bool                `env:"RESTORE"`
 	DSN           customtype.DSN      `env:"DATABASE_DSN"`
+	HashKey       string              `env:"KEY"`
+	AuditFile     string              `env:"AUDIT_FILE"`
+	AuditURL      string              `env:"AUDIT_URL"`
 	Logger        *zap.Logger
-	HashKey       string `env:"KEY"`
 }
 
 var (

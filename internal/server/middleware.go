@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -171,26 +170,43 @@ func gzipCompession() func(http.Handler) http.Handler {
 func writeMetrics(p *filestorage.Producer) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				http.Error(w, "unable to read body", http.StatusBadRequest)
-				return
-			}
-			r.Body = io.NopCloser(bytes.NewReader(body))
+			// Create a TeeReader to read the body once and write to both the handler and producer
+			var buf bytes.Buffer
+			teeReader := io.TeeReader(r.Body, &buf)
+			r.Body = io.NopCloser(teeReader)
 
-			var metric models.Metrics
-			if err := json.Unmarshal(body, &metric); err != nil {
-				http.Error(w, "invalid JSON", http.StatusBadRequest)
-				return
+			// Create a custom ResponseWriter that captures the status code
+			ww := &statusCodeCaptureWriter{
+				ResponseWriter: w,
+				statusCode:     http.StatusOK, // Default status
 			}
 
-			h.ServeHTTP(w, r)
+			h.ServeHTTP(ww, r)
 
-			if err := p.WriteMetric(metric); err != nil {
-				fmt.Printf("failed to write metric: %v\n", err)
+			// Only write metrics if the request was processed successfully
+			if ww.statusCode < 400 {
+				// Now read from the buffer to get the request body for metrics production
+				var metric models.Metrics
+				if err := json.Unmarshal(buf.Bytes(), &metric); err == nil {
+					if err := p.WriteMetric(metric); err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}
 			}
 		})
 	}
+}
+
+// statusCodeCaptureWriter wraps http.ResponseWriter to capture the status code
+type statusCodeCaptureWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *statusCodeCaptureWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
 }
 
 func checkHash(key string) func(http.Handler) http.Handler {

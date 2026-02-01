@@ -42,3 +42,13 @@ git fetch template && git checkout template/main .github
 - **Clean Architecture**
 - **Hexagonal Architecture**
 - **Layered Architecture**
+
+## Результаты оптимизации памяти
+
+После проведения оптимизаций удалось достичь значительного снижения аллокаций памяти:
+
+1. В middleware функциях, таких как `Logging`, `gzipCompession`, `writeMetrics`, раньше тело запроса читалось дважды, что приводило к избыточным аллокациям памяти.
+
+2.  Вместо чтения тела запроса дважды, начал использовать `io.TeeReader`, который позволяет читать тело один раз и одновременно записывать его в несколько мест.
+
+3. Заменил `io.ReadAll` + `json.Unmarshal` на `json.NewDecoder` с `io.LimitReader`, что уменьшает количество аллокаций памяти при обработке JSON.

@@ -29,3 +29,5 @@ vendor/
 /Notes
 /server
 /agent
+bin/server
+bin/agent

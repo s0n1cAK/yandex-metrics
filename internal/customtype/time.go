@@ -39,6 +39,10 @@ func (ct *Time) String() string {
 	return time.Duration(*ct).String()
 }
 
+func (ct *Time) Type() string {
+	return "time"
+}
+
 func (ct Time) Duration() time.Duration {
 	return time.Duration(ct)
 }
