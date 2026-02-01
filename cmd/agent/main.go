@@ -1,13 +1,19 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/agent"
 	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
 	"go.uber.org/zap"
 )
 
+var buildVersion, buildDate, buildCommit string
+
 func main() {
+	printMetaInfo()
+
 	log, err := logger.NewLogger()
 	if err != nil {
 		log.Fatal("failed to init logger", zap.Error(err))
@@ -27,4 +33,24 @@ func main() {
 	if err != nil {
 		log.Fatal("Error: %w \n", zap.Error(err))
 	}
+}
+
+func printMetaInfo() {
+	var defaultInfo = "N/A"
+
+	if buildVersion == "" {
+		buildVersion = defaultInfo
+	}
+
+	if buildDate == "" {
+		buildDate = defaultInfo
+	}
+
+	if buildCommit == "" {
+		buildCommit = defaultInfo
+	}
+
+	fmt.Println("Build version: ", buildVersion)
+	fmt.Println("Build date: ", buildDate)
+	fmt.Println("Build commit: ", buildCommit)
 }
