@@ -124,8 +124,7 @@ func BenchmarkMemStorageGet(b *testing.B) {
 	}
 	_ = storage.Set("test_metric", metric)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = storage.Get("test_metric")
 	}
 }

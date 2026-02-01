@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,30 +17,37 @@ import (
 
 func main() {
 	cfg := &packages.Config{
-		Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
+		Mode: packages.NeedSyntax |
+			packages.NeedTypes |
+			packages.NeedTypesInfo |
+			packages.NeedName |
+			packages.NeedFiles,
 	}
 
 	parsedPackages, err := packages.Load(cfg, "./...")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	for _, pkg := range parsedPackages {
 
+	for _, pkg := range parsedPackages {
 		structs := make([]tmpStruct, 0)
+
 		for _, file := range pkg.Syntax {
 			processFile(pkg.Fset, pkg.TypesInfo, file, &structs)
 		}
 
-		if len(structs) > 0 {
-			enum := tmpEnum{
-				PackageName: pkg.Name,
-				Structs:     structs,
-			}
-			if err := generateResetMethods(&enum, pkg.Dir); err != nil {
-				panic(err)
-			}
+		if len(structs) == 0 {
+			continue
 		}
 
+		enum := tmpEnum{
+			PackageName: pkg.Name,
+			Structs:     structs,
+		}
+
+		if err := generateResetMethods(&enum, pkg.Dir); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -120,11 +128,14 @@ func processFile(fset *token.FileSet, typesInfo *types.Info, file *ast.File, str
 func generateResetMethods(enum *tmpEnum, pkgPath string) error {
 	var buf bytes.Buffer
 
-	tmp := template.Must(template.New("reset").Parse(tmpResetMethod))
-
-	err := tmp.Execute(&buf, enum)
+	tmpl, err := template.New("reset").Parse(tmpResetMethod)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	err = tmpl.Execute(&buf, enum)
+	if err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
 	filePath := filepath.Join(pkgPath, genFileName)
