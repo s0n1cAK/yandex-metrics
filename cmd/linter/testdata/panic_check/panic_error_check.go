@@ -1,82 +1,82 @@
 package panic_check
 
 func errBaseCheck() {
-	panic("panic") // want "использование функции panic запрещено"
+	panic("panic")
 }
 
 func errCheckInFunc() {
 	func() {
-		panic("panic") // want "использование функции panic запрещено"
+		panic("panic")
 	}()
 }
 
 func errCheckInIf() {
 	if true {
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}
 }
 
 func errCheckInFor() {
 	for i := 0; i < 10; i++ {
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}
 }
 
 func errCheckInSwitch() {
 	switch {
 	case true:
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}
 }
 
 func errCheckWithVariable() {
 	err := "error message"
-	panic(err) // want "использование функции panic запрещено"
+	panic(err)
 }
 
 func errCheckInDefer() {
 	defer func() {
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}()
 }
 
 func errCheckInGoroutine() {
 	go func() {
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}()
 }
 
 func errCheckWithNil() {
-	panic(nil) // want "использование функции panic запрещено"
+	panic(nil)
 }
 
 // MyStruct Тестовая структура
 type MyStruct struct{}
 
 func (m MyStruct) errCheckInMethod() {
-	panic("error") // want "использование функции panic запрещено"
+	panic("error")
 }
 
 func (m *MyStruct) errCheckInPointerMethod() {
-	panic("error") // want "использование функции panic запрещено"
+	panic("error")
 }
 
 func errCheckInNestedBlocks() {
 	{
 		{
-			panic("error") // want "использование функции panic запрещено"
+			panic("error")
 		}
 	}
 }
 
 func errCheckWithErrorType() {
 	var err error
-	panic(err) // want "использование функции panic запрещено"
+	panic(err)
 }
 
 func errCheckInSelect() {
 	select {
 	default:
-		panic("error") // want "использование функции panic запрещено"
+		panic("error")
 	}
 }

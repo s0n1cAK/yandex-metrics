@@ -62,7 +62,6 @@ func processFile(fset *token.FileSet, typesInfo *types.Info, file *ast.File, str
 				continue
 			}
 
-			// Проверяем комментарии, связанные с этой структурой
 			comments := commentMap[n]
 			if comments == nil {
 				continue
@@ -82,9 +81,7 @@ func processFile(fset *token.FileSet, typesInfo *types.Info, file *ast.File, str
 								continue
 							}
 
-							// Обрабатываем все имена полей (может быть несколько: a, b int)
 							if len(field.Names) > 0 {
-								// Обычные именованные поля
 								for _, fieldName := range field.Names {
 									structFields = append(structFields, tmpStructFiled{
 										Name: fieldName.Name,
@@ -92,9 +89,8 @@ func processFile(fset *token.FileSet, typesInfo *types.Info, file *ast.File, str
 									})
 								}
 							} else {
-								// Встроенное поле (embedded field) - используем тип как имя
 								structFields = append(structFields, tmpStructFiled{
-									Name: types.TypeString(fieldType, nil), // для встроенных полей имя = тип
+									Name: types.TypeString(fieldType, nil),
 									Type: fieldType,
 								})
 							}

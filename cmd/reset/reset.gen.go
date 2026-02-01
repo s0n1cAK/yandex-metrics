@@ -3,16 +3,12 @@
 package main
 
 func (rs *ResetableStruct) Reset() {
-	// Поле i - базовый тип (int)
 	rs.i = 0
-	// Поле str - базовый тип (string)
 	rs.str = ""
-	// Поле strP - указатель на базовый тип (*string)
 	if rs.strP != nil {
 		*rs.strP = ""
 	}
-	// Поле s - слайс ([]int)
+
 	rs.s = rs.s[:0]
-	// Поле m - мапа (map[string]string)
 	clear(rs.m)
 }

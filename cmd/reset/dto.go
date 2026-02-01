@@ -17,18 +17,15 @@ type tmpStructFiled struct {
 	Type types.Type
 }
 
-// TypeString возвращает строковое представление типа
 func (f tmpStructFiled) TypeString() string {
 	return types.TypeString(f.Type, nil)
 }
 
-// IsPointer проверяет, является ли тип указателем
 func (f tmpStructFiled) IsPointer() bool {
 	_, ok := f.Type.(*types.Pointer)
 	return ok
 }
 
-// IsPointerBasic проверяет, является ли тип указателем на базовый тип
 func (f tmpStructFiled) IsPointerBasic() bool {
 	pointer, ok := f.Type.(*types.Pointer)
 	if !ok {
@@ -38,45 +35,36 @@ func (f tmpStructFiled) IsPointerBasic() bool {
 	return ok
 }
 
-// IsSlice проверяет, является ли тип слайсом
 func (f tmpStructFiled) IsSlice() bool {
 	_, ok := f.Type.(*types.Slice)
 	return ok
 }
 
-// IsMap проверяет, является ли тип мапой
 func (f tmpStructFiled) IsMap() bool {
 	_, ok := f.Type.(*types.Map)
 	return ok
 }
 
-// IsBasic проверяет, является ли тип базовым (int, string, bool и т.д.)
 func (f tmpStructFiled) IsBasic() bool {
 	_, ok := f.Type.(*types.Basic)
 	return ok
 }
 
-// HasResetMethod метод для проверки наличия метода Reset()
 func (f tmpStructFiled) HasResetMethod() bool {
-	// Получаем тип, на который нужно проверить метод
 	var checkType = f.Type
 
-	// Если это указатель, проверяем тип элемента
 	if pointer, ok := f.Type.(*types.Pointer); ok {
 		checkType = pointer.Elem()
 	}
 
-	// Проверяем, является ли тип именованным типом (Named)
 	named, ok := checkType.(*types.Named)
 	if !ok {
 		return false
 	}
 
-	// Ищем метод Reset() в типе
 	for i := 0; i < named.NumMethods(); i++ {
 		method := named.Method(i)
 		if method.Name() == "Reset" {
-			// Проверяем сигнатуру: должна быть func Reset()
 			sig := method.Type().(*types.Signature)
 			if sig.Params().Len() == 0 && sig.Results().Len() == 0 {
 				return true
@@ -87,7 +75,6 @@ func (f tmpStructFiled) HasResetMethod() bool {
 	return false
 }
 
-// ZeroValue возвращает нулевое значение для типа
 func (f tmpStructFiled) ZeroValue() string {
 	switch t := f.Type.(type) {
 	case *types.Basic:
@@ -100,7 +87,6 @@ func (f tmpStructFiled) ZeroValue() string {
 			return "nil"
 		}
 	default:
-		// Для структур и других типов
 		return types.TypeString(f.Type, nil) + "{}"
 	}
 }
