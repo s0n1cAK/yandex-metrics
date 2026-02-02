@@ -28,7 +28,9 @@ func LoadConfig(fs *pflag.FlagSet, args []string, logger *zap.Logger) (Config, e
 	fs.StringVarP(&cfg.File, "file", "f", cfg.File, "Storage file path")
 	fs.BoolVarP(&cfg.Restore, "restore", "r", cfg.Restore, "Restore metrics from file on start")
 	fs.VarP(&cfg.DSN, "dsn", "d", "Database DSN")
+
 	fs.StringVarP(&cfg.HashKey, "hash-key", "k", cfg.HashKey, "Hash key to validate request from agent")
+	fs.StringVar(&cfg.CryptoKey, "crypto-key", cfg.CryptoKey, "Path to private key (PEM)")
 
 	fs.StringVar(&cfg.AuditFile, "audit-file", cfg.AuditFile, "Path to audit file")
 	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "URL of audit endpoint")

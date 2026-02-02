@@ -29,6 +29,7 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 	fs.Var(&cfg.PollInterval, "p", "Poll interval (e.g. 2s)")
 	fs.StringVar(&cfg.Hash, "k", cfg.Hash, "Key to make hash")
 	fs.IntVar(&cfg.RateLimit, "l", cfg.RateLimit, "Request rate limit to server")
+	fs.StringVar(&cfg.CryptoKey, "crypto-key", cfg.CryptoKey, "Path to public key (PEM)")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err

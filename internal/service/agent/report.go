@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
 	"github.com/s0n1cAK/yandex-metrics/internal/hash"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 )
@@ -41,40 +42,50 @@ func (agent *Agent) Report() error {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 
-	_, err = gz.Write(payload)
-	if err != nil {
-		return fmt.Errorf("%s: %s", op, err)
+	if _, err := gz.Write(payload); err != nil {
+		return fmt.Errorf("%s: gzip write: %w", op, err)
+	}
+	if err := gz.Close(); err != nil {
+		return fmt.Errorf("%s: gzip close: %w", op, err)
 	}
 
-	if err := gz.Close(); err != nil {
-		return fmt.Errorf("%s: %s", op, err)
+	out := buf.Bytes()
+	encrypted := false
+	if agent.publicKey != nil {
+		enc, err := crypt.EncryptHybrid(agent.publicKey, out)
+		if err != nil {
+			return fmt.Errorf("%s: encrypt payload: %w", op, err)
+		}
+		out = enc
+		encrypted = true
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	request, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, endpoint, &buf)
+	request, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(out))
 	if err != nil {
-		return fmt.Errorf("%s: %s", op, err)
+		return fmt.Errorf("%s: new request: %w", op, err)
 	}
 
 	request.Close = true
-
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("HashSHA256", hash)
+	if encrypted {
+		request.Header.Set("X-Encrypted", "1")
+	}
 
 	response, err := agent.requestWithLimit(ctx, request)
 	if err != nil {
-		return fmt.Errorf("%s: %s", op, err)
+		return fmt.Errorf("%s: do request: %w", op, err)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
-		response.Body.Close()
 		return fmt.Errorf("%s: bad status: %s; body: %s", op, response.Status, string(body))
 	}
-	response.Body.Close()
 
 	for _, metric := range stotageMetrics {
 		if metric.MType == models.Gauge {

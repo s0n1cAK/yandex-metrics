@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +14,7 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/audit"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
+	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
@@ -43,6 +45,8 @@ type Server struct {
 	consumer *filestorage.Consumer
 	// producer используется для записи метрик в файловое хранилище
 	producer *filestorage.Producer
+	// privateKey используется для ассиметричного шифрования данных
+	privateKey *rsa.PrivateKey
 }
 
 // New создает новый экземпляр Server с заданной конфигурацией и хранилищем.
@@ -84,6 +88,15 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(Logging(cfg.Logger))
+
+	if cfg.CryptoKey != "" {
+		priv, err := crypt.LoadPrivateKey(cfg.CryptoKey)
+		if err != nil {
+			return nil, fmt.Errorf("%s: load private key: %w", op, err)
+		}
+		r.Use(DecryptMiddleware(priv, cfg.Logger))
+	}
+
 	r.Use(gzipCompession())
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(60 * time.Second))

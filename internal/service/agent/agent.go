@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
+	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
@@ -27,9 +29,11 @@ type Agent struct {
 	Server         string
 	Logger         *zap.Logger
 	hash           string
+	publicKey      *rsa.PublicKey
 	PollInterval   time.Duration
 	ReportInterval time.Duration
-	httpLimiter    chan struct{}
+
+	httpLimiter chan struct{}
 }
 
 func New(log *zap.Logger, storage Storage) *Agent {
@@ -38,7 +42,7 @@ func New(log *zap.Logger, storage Storage) *Agent {
 		log.Fatal("Error while parsing env", zap.Error(err))
 	}
 
-	return &Agent{
+	a := &Agent{
 		Client:         cfg.Client,
 		Server:         cfg.Endpoint.String(),
 		Storage:        storage,
@@ -48,6 +52,16 @@ func New(log *zap.Logger, storage Storage) *Agent {
 		ReportInterval: cfg.ReportInterval.Duration(),
 		httpLimiter:    make(chan struct{}, cfg.RateLimit),
 	}
+
+	if cfg.CryptoKey != "" {
+		pub, err := crypt.LoadPublicKey(cfg.CryptoKey)
+		if err != nil {
+			a.Logger.Fatal("Error while loading public key", zap.Error(err))
+		}
+		a.publicKey = pub
+	}
+
+	return a
 }
 
 // https://gosamples.dev/range-over-ticker/

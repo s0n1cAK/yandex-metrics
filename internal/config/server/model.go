@@ -16,6 +16,7 @@ type Config struct {
 	HashKey       string              `env:"KEY"`
 	AuditFile     string              `env:"AUDIT_FILE"`
 	AuditURL      string              `env:"AUDIT_URL"`
+	CryptoKey     string              `env:"CRYPTO_KEY"`
 	Logger        *zap.Logger
 }
 
