@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os/signal"
+	"syscall"
 
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/agent"
@@ -33,7 +36,13 @@ func main() {
 		zap.Duration("poll_interval", agent.PollInterval),
 		zap.Duration("report_interval", agent.ReportInterval),
 	)
-	err = agent.Run()
+	appCtx, stop := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,
+	)
+	defer stop()
+
+	err = agent.Run(appCtx)
 	if err != nil {
 		log.Fatal("Error: %w \n", zap.Error(err))
 	}

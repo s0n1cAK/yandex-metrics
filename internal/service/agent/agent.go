@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"crypto/rsa"
 	"flag"
 	"fmt"
@@ -71,7 +72,7 @@ func New(log *zap.Logger, storage Storage) *Agent {
 
 // https://gosamples.dev/range-over-ticker/
 
-func (agent *Agent) Run() error {
+func (agent *Agent) Run(ctx context.Context) error {
 	if agent.PollInterval < time.Second {
 		return fmt.Errorf("poll can't be lower that 2 seconds")
 	}
@@ -108,10 +109,20 @@ func (agent *Agent) Run() error {
 
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
-			err := agent.Report()
-			if err != nil {
+			if err := agent.Report(); err != nil {
 				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
+
+		case <-ctx.Done():
+			agent.Logger.Info("Shutdown signal received, flushing metrics")
+
+			_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := agent.Report(); err != nil {
+				agent.Logger.Error("Final report failed", zap.Error(err))
+			}
+			return nil
 		}
 	}
 }

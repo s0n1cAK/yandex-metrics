@@ -170,21 +170,27 @@ func (c *Server) restoreMetricsFromFile() error {
 	return nil
 }
 
-func (c *Server) scheduleFilePersistence() error {
+func (c *Server) scheduleFilePersistence(ctx context.Context) error {
 	if c.Config.StoreInterval > 0 {
 		ticker := time.NewTicker(c.Config.StoreInterval.Duration())
 
 		go func() {
-			for range ticker.C {
-				metrics, err := c.Storage.GetAll()
-				if err != nil {
-					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
-				}
-				err = c.producer.WriteMetrics(metrics)
-				if err != nil {
-					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
-				} else {
-					c.Config.Logger.Info("Метрики сохранены в файл (по таймеру)")
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					metrics, err := c.Storage.GetAll()
+					if err != nil {
+						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+						continue
+					}
+					if err := c.producer.WriteMetrics(metrics); err != nil {
+						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+					} else {
+						c.Config.Logger.Info("Метрики сохранены в файл (по таймеру)")
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
@@ -221,7 +227,7 @@ func (c *Server) Start(ctx context.Context) error {
 
 		c.Config.Logger.Info("Миграции выполнены успешно")
 	case *memstorage.MemStorage:
-		if err := c.scheduleFilePersistence(); err != nil {
+		if err := c.scheduleFilePersistence(ctx); err != nil {
 			return err
 		}
 	}

@@ -41,7 +41,10 @@ func main() {
 	}
 	defer cfg.Logger.Sync()
 
-	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	appCtx, appCancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,
+	)
 	defer appCancel()
 
 	storage, err := storage.New(appCtx, cfg, log)

@@ -2,9 +2,7 @@ package agent
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 )
@@ -17,17 +15,26 @@ type agentFileConfig struct {
 }
 
 func resolveConfigPath(args []string) (string, error) {
-	var path string
-	fs := flag.NewFlagSet("cfg", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.StringVar(&path, "c", "", "config file path")
-	fs.StringVar(&path, "config", "", "config file path")
-	if err := fs.Parse(args); err != nil {
-		return "", err
-	}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 
-	if path != "" {
-		return path, nil
+		switch a {
+		case "-c", "-config", "--config":
+			if i+1 < len(args) {
+				return args[i+1], nil
+			}
+			return "", fmt.Errorf("%s requires a value", a)
+		}
+
+		if strings.HasPrefix(a, "-c=") {
+			return strings.TrimPrefix(a, "-c="), nil
+		}
+		if strings.HasPrefix(a, "-config=") {
+			return strings.TrimPrefix(a, "-config="), nil
+		}
+		if strings.HasPrefix(a, "--config=") {
+			return strings.TrimPrefix(a, "--config="), nil
+		}
 	}
 
 	if envPath := os.Getenv("CONFIG"); envPath != "" {
