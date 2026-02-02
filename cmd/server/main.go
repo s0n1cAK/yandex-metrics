@@ -15,7 +15,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
 func main() {
+	printMetaInfo()
+
 	log, err := logger.NewLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %s \n", err)
@@ -46,4 +54,10 @@ func main() {
 		log.Fatal("error while starting server", zap.Error(err))
 	}
 
+}
+
+func printMetaInfo() {
+	fmt.Println("Build version: ", buildVersion)
+	fmt.Println("Build date: ", buildDate)
+	fmt.Println("Build commit: ", buildCommit)
 }

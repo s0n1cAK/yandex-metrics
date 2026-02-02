@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"github.com/shirou/gopsutil/v4/mem"
 	"golang.org/x/sync/errgroup"
 )
@@ -49,42 +50,42 @@ func uniqMetric(m string) string {
 	return fmt.Sprintf("%s-%v", m, time.Now().UnixNano())
 }
 
-// В будущем переписать на структуры с нужными полями, которая будет заполняться, из-за того что reflect
-// тяжелый и медленный пакет
 func (agent *Agent) CollectRuntime() error {
 	op := "agent.CollectRuntime"
 
 	var g errgroup.Group
 
 	for _, metric := range runtimeMetrics {
-		var ms runtime.MemStats
-		runtime.ReadMemStats(&ms)
-		val := reflect.ValueOf(ms)
+		metric := metric
 
 		g.Go(func() error {
+			var ms runtime.MemStats
+			runtime.ReadMemStats(&ms)
+			val := reflect.ValueOf(ms)
+
 			field := val.FieldByName(metric)
+			if !field.IsValid() {
+				return fmt.Errorf("%s: metric %s not found", op, metric)
+			}
 
 			var metricToReport float64
 			switch field.Kind() {
-			case reflect.Uint64:
-				metricToReport = float64(field.Uint())
-			case reflect.Uint32:
+			case reflect.Uint64, reflect.Uint32:
 				metricToReport = float64(field.Uint())
 			case reflect.Float64:
 				metricToReport = field.Float()
 			default:
-				return fmt.Errorf("%s: unsupported metric type: %s", op, field.Kind())
+				return fmt.Errorf("%s: unsupported metric type for %s: %s", op, metric, field.Kind())
 			}
 
-			err := agent.updateGaugeMetruc(metric, metricToReport)
-			if err != nil {
-				return fmt.Errorf("%s: Error: %w", op, err)
+			if err := agent.updateGaugeMetruc(metric, metricToReport); err != nil {
+				return fmt.Errorf("%s: error: %w", op, err)
 			}
 
 			return nil
 		})
-
 	}
+
 	return g.Wait()
 }
 
@@ -93,22 +94,18 @@ func (agent *Agent) CollectRandomValue() error {
 
 	randFloat := rand.Float64()
 
-	err := agent.updateGaugeMetruc(MetricNameRandomValue, randFloat)
-	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
+	if err := agent.updateGaugeMetruc(MetricNameRandomValue, randFloat); err != nil {
+		return fmt.Errorf("%s: error: %w", op, err)
 	}
 	return nil
 }
 
-func (agent *Agent) CollectIncrementCounter(ID string, value int64) error {
-	op := "agent.CollectIncrementCounter"
-
-	err := agent.updateCounterMetruc(ID, value)
-	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
-	}
-
-	return nil
+func (agent *Agent) CollectIncrementCounter(id string, value int64) error {
+	return agent.Storage.Set(id, models.Metrics{
+		ID:    id,
+		MType: models.Counter,
+		Delta: &value,
+	})
 }
 
 func (agent *Agent) CollectGopsutil() error {
@@ -116,24 +113,19 @@ func (agent *Agent) CollectGopsutil() error {
 
 	v, err := mem.VirtualMemory()
 	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
+		return fmt.Errorf("%s: error: %w", op, err)
 	}
 
-	totalMemoryValue := float64(v.Total)
-	freeMemoryValue := float64(v.Free)
-	usePersentValue := float64(v.UsedPercent)
+	metrics := map[string]float64{
+		"TotalMemory":     float64(v.Total),
+		"FreeMemory":      float64(v.Free),
+		"CPUutilization1": float64(v.UsedPercent),
+	}
 
-	err = agent.updateGaugeMetruc("TotalMemory", totalMemoryValue)
-	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
-	}
-	err = agent.updateGaugeMetruc("FreeMemory", freeMemoryValue)
-	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
-	}
-	err = agent.updateGaugeMetruc("CPUutilization1", usePersentValue)
-	if err != nil {
-		return fmt.Errorf("%s: Error: %w", op, err)
+	for name, value := range metrics {
+		if err := agent.updateGaugeMetruc(name, value); err != nil {
+			return fmt.Errorf("%s: error updating %s: %w", op, name, err)
+		}
 	}
 
 	return nil

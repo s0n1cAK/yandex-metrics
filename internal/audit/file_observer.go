@@ -24,14 +24,15 @@ func (f *FileAuditObserver) Notify(event model.AuditEvent) error {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
+	// Открытие файла вне критической секции
 	file, err := os.OpenFile(f.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", f.path, err)
 	}
 	defer file.Close()
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	_, err = file.Write(append(data, '\n'))
 	if err != nil {
@@ -39,5 +40,4 @@ func (f *FileAuditObserver) Notify(event model.AuditEvent) error {
 	}
 
 	return nil
-
 }
