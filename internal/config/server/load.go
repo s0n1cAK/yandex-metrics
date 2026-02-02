@@ -19,9 +19,25 @@ func LoadConfig(fs *pflag.FlagSet, args []string, logger *zap.Logger) (Config, e
 		Logger:        logger,
 	}
 
+	cfgPath, err := resolveConfigPath(args)
+	if err != nil {
+		return Config{}, err
+	}
+	if cfgPath != "" {
+		fc, err := loadServerFileConfig(cfgPath)
+		if err != nil {
+			return Config{}, err
+		}
+		if err := applyServerFileConfig(&cfg, fc); err != nil {
+			return Config{}, err
+		}
+	}
+
 	if err := env.Parse(&cfg); err != nil {
 		return Config{}, err
 	}
+
+	fs.StringVarP(new(string), "config", "c", "", "Path to config file (JSON)")
 
 	fs.VarP(&cfg.Endpoint, "endpoint", "a", "Server listen address, e.g. http://host:port")
 	fs.VarP(&cfg.StoreInterval, "store-interval", "i", "Store interval (e.g. 5m)")
@@ -36,6 +52,10 @@ func LoadConfig(fs *pflag.FlagSet, args []string, logger *zap.Logger) (Config, e
 	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "URL of audit endpoint")
 
 	if err := fs.Parse(args); err != nil {
+		return Config{}, err
+	}
+
+	if err := ValidateConfig(cfg); err != nil {
 		return Config{}, err
 	}
 

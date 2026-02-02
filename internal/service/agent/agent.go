@@ -2,7 +2,9 @@ package agent
 
 import (
 	"crypto/rsa"
+	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -39,7 +41,10 @@ type Agent struct {
 func New(log *zap.Logger, storage Storage) *Agent {
 	cfg, err := agent.NewConfig(log)
 	if err != nil {
-		log.Fatal("Error while parsing env", zap.Error(err))
+		if err == flag.ErrHelp {
+			os.Exit(0)
+		}
+		log.Fatal("Error while parsing config", zap.Error(err))
 	}
 
 	a := &Agent{

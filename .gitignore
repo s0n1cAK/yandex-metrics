@@ -33,3 +33,5 @@ bin/server
 bin/agent
 /private.pem
 /public.pem
+/config_server
+/config_agent
