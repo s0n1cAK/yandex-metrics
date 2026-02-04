@@ -65,7 +65,8 @@ func DecryptMiddleware(priv *rsa.PrivateKey, log *zap.Logger) func(http.Handler)
 				http.Error(w, "unable to read body", http.StatusBadRequest)
 				return
 			}
-			_ = r.Body.Close()
+
+			r.Body.Close()
 
 			minLen := rsaBlockSize + nonceSize
 			if len(body) < minLen {

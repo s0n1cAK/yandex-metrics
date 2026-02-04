@@ -90,8 +90,11 @@ func applyServerFileConfig(cfg *Config, fc serverFileConfig) error {
 		cfg.File = *fc.StoreFile
 	}
 	if fc.DatabaseDSN != nil {
-		if *fc.DatabaseDSN == "" {
-		} else if err := cfg.DSN.Set(*fc.DatabaseDSN); err != nil {
+		dsn := *fc.DatabaseDSN
+		if dsn == "" {
+			return nil
+		}
+		if err := cfg.DSN.Set(dsn); err != nil {
 			return fmt.Errorf("bad database_dsn in config: %w", err)
 		}
 	}
