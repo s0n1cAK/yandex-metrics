@@ -35,8 +35,8 @@ type Agent struct {
 	publicKey      *rsa.PublicKey
 	PollInterval   time.Duration
 	ReportInterval time.Duration
-
-	httpLimiter chan struct{}
+	realIP         string
+	httpLimiter    chan struct{}
 }
 
 func New(log *zap.Logger, storage Storage) *Agent {
@@ -48,6 +48,11 @@ func New(log *zap.Logger, storage Storage) *Agent {
 		log.Fatal("Error while parsing config", zap.Error(err))
 	}
 
+	ip, err := localIPForRemote(cfg.Endpoint.HostPort())
+	if err != nil {
+		log.Fatal("failed to resolve agent ip", zap.Error(err))
+	}
+
 	a := &Agent{
 		Client:         cfg.Client,
 		Server:         cfg.Endpoint.String(),
@@ -56,6 +61,7 @@ func New(log *zap.Logger, storage Storage) *Agent {
 		hash:           cfg.Hash,
 		PollInterval:   cfg.PollInterval.Duration(),
 		ReportInterval: cfg.ReportInterval.Duration(),
+		realIP:         ip,
 		httpLimiter:    make(chan struct{}, cfg.RateLimit),
 	}
 

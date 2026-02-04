@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -16,6 +17,7 @@ type serverFileConfig struct {
 	StoreFile     *string `json:"store_file"`
 	DatabaseDSN   *string `json:"database_dsn"`
 	CryptoKey     *string `json:"crypto_key"`
+	TrustedSubnet *string `json:"trusted_subnet"`
 }
 
 func resolveConfigPath(args []string) (string, error) {
@@ -95,6 +97,9 @@ func applyServerFileConfig(cfg *Config, fc serverFileConfig) error {
 	}
 	if fc.CryptoKey != nil {
 		cfg.CryptoKey = *fc.CryptoKey
+	}
+	if fc.TrustedSubnet != nil {
+		cfg.TrustedSubnet = strings.TrimSpace(*fc.TrustedSubnet)
 	}
 	return nil
 }

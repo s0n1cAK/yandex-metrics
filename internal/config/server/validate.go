@@ -1,6 +1,10 @@
 package server
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"net"
+)
 
 var (
 	ErrEmptyEndpoint = errors.New("endpoint is empty")
@@ -17,6 +21,11 @@ func ValidateConfig(cfg Config) error {
 	}
 	if cfg.Restore && cfg.File == "" {
 		return ErrEmptyFile
+	}
+	if cfg.TrustedSubnet != "" {
+		if _, _, err := net.ParseCIDR(cfg.TrustedSubnet); err != nil {
+			return fmt.Errorf("invalid trusted_subnet CIDR: %w", err)
+		}
 	}
 	return nil
 }

@@ -17,6 +17,7 @@ type Config struct {
 	AuditFile     string              `env:"AUDIT_FILE"`
 	AuditURL      string              `env:"AUDIT_URL"`
 	CryptoKey     string              `env:"CRYPTO_KEY"`
+	TrustedSubnet string              `env:"TRUSTED_SUBNET"`
 	Logger        *zap.Logger
 }
 
@@ -25,4 +26,5 @@ var (
 	DefaultStoreInterval = customtype.Time(300 * time.Second)
 	DefaultFile          = "Metrics.data"
 	DefaultRestore       = true
+	DefaultTrustedSubnet = ""
 )

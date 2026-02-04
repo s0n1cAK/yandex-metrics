@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
@@ -84,6 +85,15 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		return nil, fmt.Errorf("%s: %s", op, err)
 	}
 
+	var trustedNet *net.IPNet
+	if strings.TrimSpace(cfg.TrustedSubnet) != "" {
+		_, n, err := net.ParseCIDR(cfg.TrustedSubnet)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", op, err)
+		}
+		trustedNet = n
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
@@ -112,18 +122,24 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 
 	svc := metrics.New(storage, pinger, cfg.Logger, publisher)
 
-	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
-	r.Post("/update", httpx.SetMetricJSON(svc))
-
 	// Кастыль т.к. проверка хеша нужна для updates, проблема в тестах
 	// hard code value https://github.com/Yandex-Practicum/go-autotests/blob/main/cmd/metricstest/iteration14_test.go#L58
 	r.Group(func(r chi.Router) {
-		if !strings.EqualFold(cfg.HashKey, "") {
-			cfg.Logger.Info("Используется hash валидация")
-			r.Use(checkHash(cfg.HashKey))
+		if trustedNet != nil {
+			r.Use(TrustedSubnetMiddleware(trustedNet, cfg.Logger))
 		}
-		r.Route("/updates", func(r chi.Router) {
-			r.Post("/", httpx.SetBatchMetrics(svc))
+
+		r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
+		r.Post("/update", httpx.SetMetricJSON(svc))
+
+		r.Group(func(r chi.Router) {
+			if !strings.EqualFold(cfg.HashKey, "") {
+				cfg.Logger.Info("Используется hash валидация")
+				r.Use(checkHash(cfg.HashKey))
+			}
+			r.Route("/updates", func(r chi.Router) {
+				r.Post("/", httpx.SetBatchMetrics(svc))
+			})
 		})
 	})
 
