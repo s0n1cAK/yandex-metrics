@@ -3,8 +3,10 @@ package httpx
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,12 +15,25 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 )
 
+func clientIP(r *http.Request) string {
+	if v := strings.TrimSpace(r.Header.Get("X-Real-IP")); v != "" {
+		return v
+	}
+
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil && host != "" {
+		return host
+	}
+
+	return strings.TrimSpace(r.RemoteAddr)
+}
+
 // SetMetricURL возвращает HTTP-обработчик для обновления метрики через URL-параметры.
 // Принимает тип метрики, имя и значение в URL и устанавливает новое значение метрики.
 // Пример: POST /update/counter/requests/10
 func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
+		ip := clientIP(r)
 
 		m, err := BindMetricFromURL(r)
 		if err != nil {
@@ -39,7 +54,7 @@ func SetMetricURL(svc metrics.Service) http.HandlerFunc {
 // Пример: POST /update {"id":"requests","type":"counter","delta":1}
 func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
+		ip := clientIP(r)
 
 		m, err := BindMetricFromJSON(r)
 		if err != nil {
@@ -61,7 +76,7 @@ func SetMetricJSON(svc metrics.Service) http.HandlerFunc {
 // Пример: POST /updates [{"id":"requests","type":"counter","delta":1},{"id":"cpu","type":"gauge","value":0.7}]
 func SetBatchMetrics(svc metrics.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
+		ip := clientIP(r)
 
 		batch, err := BindBatchFromJSON(r)
 		if err != nil {

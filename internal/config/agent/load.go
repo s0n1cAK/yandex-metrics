@@ -48,6 +48,8 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 	fs.StringVar(new(string), "c", "", "Path to config file (JSON)")
 	fs.StringVar(new(string), "config", "", "Path to config file (JSON)")
 
+	fs.StringVar(&cfg.GRPCAddress, "grpc-address", cfg.GRPCAddress, "gRPC server address")
+
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}

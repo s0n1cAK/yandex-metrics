@@ -51,6 +51,10 @@ func LoadConfig(fs *pflag.FlagSet, args []string, logger *zap.Logger) (Config, e
 	fs.StringVar(&cfg.AuditFile, "audit-file", cfg.AuditFile, "Path to audit file")
 	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "URL of audit endpoint")
 
+	fs.StringVarP(&cfg.TrustedSubnet, "trusted-subnet", "t", cfg.TrustedSubnet, "Trusted subnet in CIDR")
+
+	fs.StringVar(&cfg.GRPCAddress, "grpc-address", cfg.GRPCAddress, "gRPC listen address")
+
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}

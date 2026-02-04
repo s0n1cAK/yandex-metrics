@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -16,6 +17,8 @@ type serverFileConfig struct {
 	StoreFile     *string `json:"store_file"`
 	DatabaseDSN   *string `json:"database_dsn"`
 	CryptoKey     *string `json:"crypto_key"`
+	TrustedSubnet *string `json:"trusted_subnet"`
+	GRPCAddress   *string `json:"grpc_address"`
 }
 
 func resolveConfigPath(args []string) (string, error) {
@@ -88,13 +91,22 @@ func applyServerFileConfig(cfg *Config, fc serverFileConfig) error {
 		cfg.File = *fc.StoreFile
 	}
 	if fc.DatabaseDSN != nil {
-		if *fc.DatabaseDSN == "" {
-		} else if err := cfg.DSN.Set(*fc.DatabaseDSN); err != nil {
+		dsn := *fc.DatabaseDSN
+		if dsn == "" {
+			return nil
+		}
+		if err := cfg.DSN.Set(dsn); err != nil {
 			return fmt.Errorf("bad database_dsn in config: %w", err)
 		}
 	}
 	if fc.CryptoKey != nil {
 		cfg.CryptoKey = *fc.CryptoKey
+	}
+	if fc.TrustedSubnet != nil {
+		cfg.TrustedSubnet = strings.TrimSpace(*fc.TrustedSubnet)
+	}
+	if fc.GRPCAddress != nil {
+		cfg.GRPCAddress = *fc.GRPCAddress
 	}
 	return nil
 }

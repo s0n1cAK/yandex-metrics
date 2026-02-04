@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -29,6 +30,21 @@ const (
 	aesKeySize  = 32
 	maxBodySize = 20 << 20
 )
+
+func TrustedSubnetMiddleware(trusted *net.IPNet, log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ipStr := strings.TrimSpace(r.Header.Get("X-Real-IP"))
+			ip := net.ParseIP(ipStr)
+			if ip == nil || !trusted.Contains(ip) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 
 func DecryptMiddleware(priv *rsa.PrivateKey, log *zap.Logger) func(http.Handler) http.Handler {
 	if priv == nil {
@@ -49,7 +65,8 @@ func DecryptMiddleware(priv *rsa.PrivateKey, log *zap.Logger) func(http.Handler)
 				http.Error(w, "unable to read body", http.StatusBadRequest)
 				return
 			}
-			_ = r.Body.Close()
+
+			r.Body.Close()
 
 			minLen := rsaBlockSize + nonceSize
 			if len(body) < minLen {

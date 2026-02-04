@@ -97,7 +97,7 @@ func (s *service) SetBatch(ctx context.Context, batch []models.Metrics, ip strin
 			}
 		case models.Counter:
 			s.log.Debug("metric set", zap.String("id", m.ID), zap.String("type", m.MType), zap.Int64("Value", *m.Delta))
-			if m.ID == "" || m.Delta == nil || *m.Delta == 0 {
+			if m.ID == "" || m.Delta == nil {
 				return domain.ErrInvalidPayload
 			}
 		default:

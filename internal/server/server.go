@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"crypto/rsa"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
@@ -15,13 +17,16 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
+	pb "github.com/s0n1cAK/yandex-metrics/internal/proto"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
 	memstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/memStorage"
+	grpc "github.com/s0n1cAK/yandex-metrics/internal/transport/gRPC"
 	"github.com/s0n1cAK/yandex-metrics/internal/transport/httpx"
 	"go.uber.org/zap"
+	grpcLib "google.golang.org/grpc"
 )
 
 const (
@@ -47,6 +52,11 @@ type Server struct {
 	producer *filestorage.Producer
 	// privateKey используется для ассиметричного шифрования данных
 	privateKey *rsa.PrivateKey
+
+	metricsSvc metrics.Service
+	trustedNet *net.IPNet
+
+	grpcAddr string
 }
 
 // New создает новый экземпляр Server с заданной конфигурацией и хранилищем.
@@ -84,6 +94,15 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 		return nil, fmt.Errorf("%s: %s", op, err)
 	}
 
+	var trustedNet *net.IPNet
+	if strings.TrimSpace(cfg.TrustedSubnet) != "" {
+		_, n, err := net.ParseCIDR(cfg.TrustedSubnet)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", op, err)
+		}
+		trustedNet = n
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
@@ -112,18 +131,24 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 
 	svc := metrics.New(storage, pinger, cfg.Logger, publisher)
 
-	r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
-	r.Post("/update", httpx.SetMetricJSON(svc))
-
 	// Кастыль т.к. проверка хеша нужна для updates, проблема в тестах
 	// hard code value https://github.com/Yandex-Practicum/go-autotests/blob/main/cmd/metricstest/iteration14_test.go#L58
 	r.Group(func(r chi.Router) {
-		if !strings.EqualFold(cfg.HashKey, "") {
-			cfg.Logger.Info("Используется hash валидация")
-			r.Use(checkHash(cfg.HashKey))
+		if trustedNet != nil {
+			r.Use(TrustedSubnetMiddleware(trustedNet, cfg.Logger))
 		}
-		r.Route("/updates", func(r chi.Router) {
-			r.Post("/", httpx.SetBatchMetrics(svc))
+
+		r.Post("/update/{type}/{metric}/{value}", httpx.SetMetricURL(svc))
+		r.Post("/update", httpx.SetMetricJSON(svc))
+
+		r.Group(func(r chi.Router) {
+			if !strings.EqualFold(cfg.HashKey, "") {
+				cfg.Logger.Info("Используется hash валидация")
+				r.Use(checkHash(cfg.HashKey))
+			}
+			r.Route("/updates", func(r chi.Router) {
+				r.Post("/", httpx.SetBatchMetrics(svc))
+			})
 		})
 	})
 
@@ -135,13 +160,16 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	r.Get("/ping", httpx.Ping(svc))
 
 	return &Server{
-		Address:  domain,
-		Port:     port,
-		Router:   r,
-		Config:   cfg,
-		Storage:  storage,
-		consumer: consumer,
-		producer: producer,
+		Address:    domain,
+		Port:       port,
+		Router:     r,
+		Config:     cfg,
+		Storage:    storage,
+		consumer:   consumer,
+		producer:   producer,
+		metricsSvc: svc,
+		trustedNet: trustedNet,
+		grpcAddr:   cfg.GRPCAddress,
 	}, nil
 }
 
@@ -232,14 +260,14 @@ func (c *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	srv := c.start()
+	httpSrv := c.start()
 
-	err = c.gracefulShutdown(ctx, srv)
+	grpcSrv, grpcLis, err := c.startGRPC()
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return c.gracefulShutdown(ctx, httpSrv, grpcSrv, grpcLis)
 }
 
 func (c *Server) start() *http.Server {
@@ -257,7 +285,7 @@ func (c *Server) start() *http.Server {
 	return srv
 }
 
-func (c *Server) gracefulShutdown(ctx context.Context, srv *http.Server) error {
+func (c *Server) gracefulShutdown(ctx context.Context, httpSrv *http.Server, grpcSrv *grpcLib.Server, grpcLis net.Listener) error {
 	op := "server.gracefulShutdown"
 
 	<-ctx.Done()
@@ -278,9 +306,55 @@ func (c *Server) gracefulShutdown(ctx context.Context, srv *http.Server) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("%s: Попытка остановки сервера завершилась с ошибкой: %w", op, err)
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("%s: http shutdown error: %w", op, err)
+	}
+
+	if grpcSrv != nil {
+		done := make(chan struct{})
+		go func() {
+			grpcSrv.GracefulStop()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-shutdownCtx.Done():
+			grpcSrv.Stop()
+		}
+	}
+	if grpcLis != nil {
+		_ = grpcLis.Close()
 	}
 
 	return nil
+}
+
+func (c *Server) startGRPC() (*grpcLib.Server, net.Listener, error) {
+	if strings.TrimSpace(c.grpcAddr) == "" {
+		return nil, nil, nil
+	}
+
+	lis, err := net.Listen("tcp", c.grpcAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("grpc listen: %w", err)
+	}
+
+	opts := []grpcLib.ServerOption{}
+	if c.trustedNet != nil {
+		opts = append(opts, grpcLib.UnaryInterceptor(TrustedSubnetUnaryInterceptor(c.trustedNet, c.Config.Logger)))
+	}
+
+	gs := grpcLib.NewServer(opts...)
+
+	pb.RegisterMetricsServer(gs, grpc.NewMetricsServer(c.metricsSvc))
+
+	go func() {
+		c.Config.Logger.Info("gRPC server started", zap.String("addr", c.grpcAddr))
+		if err := gs.Serve(lis); err != nil && !errors.Is(err, net.ErrClosed) {
+			c.Config.Logger.Error("gRPC serve error", zap.Error(err))
+		}
+	}()
+
+	return gs, lis, nil
 }

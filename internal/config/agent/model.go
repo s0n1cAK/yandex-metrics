@@ -16,6 +16,7 @@ type Config struct {
 	Hash           string              `env:"KEY"`
 	RateLimit      int                 `env:"RATE_LIMIT"`
 	CryptoKey      string              `env:"CRYPTO_KEY"`
+	GRPCAddress    string              `env:"GRPC_ADDRESS"`
 	Logger         *zap.Logger
 }
 

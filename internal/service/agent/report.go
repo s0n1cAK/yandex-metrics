@@ -71,6 +71,7 @@ func (agent *Agent) Report() error {
 	request.Close = true
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Real-IP", agent.realIP)
 	request.Header.Set("HashSHA256", hash)
 	if encrypted {
 		request.Header.Set("X-Encrypted", "1")
