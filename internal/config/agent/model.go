@@ -15,6 +15,7 @@ type Config struct {
 	PollInterval   customtype.Time     `env:"POLL_INTERVAL"`
 	Hash           string              `env:"KEY"`
 	RateLimit      int                 `env:"RATE_LIMIT"`
+	CryptoKey      string              `env:"CRYPTO_KEY"`
 	Logger         *zap.Logger
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/logger"
 	"github.com/s0n1cAK/yandex-metrics/internal/server"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
+	"github.com/spf13/pflag"
 
 	"go.uber.org/zap"
 )
@@ -32,11 +34,17 @@ func main() {
 
 	cfg, err := config.NewConfig(log)
 	if err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			os.Exit(0)
+		}
 		log.Fatal("failed to create server config", zap.Error(err))
 	}
 	defer cfg.Logger.Sync()
 
-	appCtx, appCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	appCtx, appCancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,
+	)
 	defer appCancel()
 
 	storage, err := storage.New(appCtx, cfg, log)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +14,7 @@ import (
 	"github.com/s0n1cAK/yandex-metrics/internal/audit"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/db"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/server"
+	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
 	"github.com/s0n1cAK/yandex-metrics/internal/service/metrics"
 	"github.com/s0n1cAK/yandex-metrics/internal/storage"
 	dbstorage "github.com/s0n1cAK/yandex-metrics/internal/storage/dbStorage"
@@ -43,6 +45,8 @@ type Server struct {
 	consumer *filestorage.Consumer
 	// producer используется для записи метрик в файловое хранилище
 	producer *filestorage.Producer
+	// privateKey используется для ассиметричного шифрования данных
+	privateKey *rsa.PrivateKey
 }
 
 // New создает новый экземпляр Server с заданной конфигурацией и хранилищем.
@@ -84,6 +88,15 @@ func New(cfg *server.Config, storage storage.BasicStorage) (*Server, error) {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(Logging(cfg.Logger))
+
+	if cfg.CryptoKey != "" {
+		priv, err := crypt.LoadPrivateKey(cfg.CryptoKey)
+		if err != nil {
+			return nil, fmt.Errorf("%s: load private key: %w", op, err)
+		}
+		r.Use(DecryptMiddleware(priv, cfg.Logger))
+	}
+
 	r.Use(gzipCompession())
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(60 * time.Second))
@@ -157,21 +170,27 @@ func (c *Server) restoreMetricsFromFile() error {
 	return nil
 }
 
-func (c *Server) scheduleFilePersistence() error {
+func (c *Server) scheduleFilePersistence(ctx context.Context) error {
 	if c.Config.StoreInterval > 0 {
 		ticker := time.NewTicker(c.Config.StoreInterval.Duration())
 
 		go func() {
-			for range ticker.C {
-				metrics, err := c.Storage.GetAll()
-				if err != nil {
-					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
-				}
-				err = c.producer.WriteMetrics(metrics)
-				if err != nil {
-					c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
-				} else {
-					c.Config.Logger.Info("Метрики сохранены в файл (по таймеру)")
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					metrics, err := c.Storage.GetAll()
+					if err != nil {
+						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+						continue
+					}
+					if err := c.producer.WriteMetrics(metrics); err != nil {
+						c.Config.Logger.Error("Ошибка при сохранении метрик", zap.Error(err))
+					} else {
+						c.Config.Logger.Info("Метрики сохранены в файл (по таймеру)")
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
@@ -208,7 +227,7 @@ func (c *Server) Start(ctx context.Context) error {
 
 		c.Config.Logger.Info("Миграции выполнены успешно")
 	case *memstorage.MemStorage:
-		if err := c.scheduleFilePersistence(); err != nil {
+		if err := c.scheduleFilePersistence(ctx); err != nil {
 			return err
 		}
 	}

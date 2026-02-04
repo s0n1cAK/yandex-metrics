@@ -20,6 +20,20 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 		RateLimit:      DefaultRateLimit,
 	}
 
+	cfgPath, err := resolveConfigPath(args)
+	if err != nil {
+		return Config{}, err
+	}
+	if cfgPath != "" {
+		fc, err := loadAgentFileConfig(cfgPath)
+		if err != nil {
+			return Config{}, err
+		}
+		if err := applyAgentFileConfig(&cfg, fc); err != nil {
+			return Config{}, err
+		}
+	}
+
 	if err := env.Parse(&cfg); err != nil {
 		return Config{}, err
 	}
@@ -29,6 +43,10 @@ func LoadConfig(fs *flag.FlagSet, args []string, log *zap.Logger) (Config, error
 	fs.Var(&cfg.PollInterval, "p", "Poll interval (e.g. 2s)")
 	fs.StringVar(&cfg.Hash, "k", cfg.Hash, "Key to make hash")
 	fs.IntVar(&cfg.RateLimit, "l", cfg.RateLimit, "Request rate limit to server")
+	fs.StringVar(&cfg.CryptoKey, "crypto-key", cfg.CryptoKey, "Path to public key (PEM)")
+
+	fs.StringVar(new(string), "c", "", "Path to config file (JSON)")
+	fs.StringVar(new(string), "config", "", "Path to config file (JSON)")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err

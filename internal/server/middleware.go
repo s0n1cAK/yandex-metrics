@@ -3,7 +3,13 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -14,6 +20,106 @@ import (
 	filestorage "github.com/s0n1cAK/yandex-metrics/internal/storage/fileStorage"
 	"go.uber.org/zap"
 )
+
+const (
+	encryptedHeader = "X-Encrypted"
+	encryptedValue  = "1"
+
+	nonceSize   = 12
+	aesKeySize  = 32
+	maxBodySize = 20 << 20
+)
+
+func DecryptMiddleware(priv *rsa.PrivateKey, log *zap.Logger) func(http.Handler) http.Handler {
+	if priv == nil {
+		return func(h http.Handler) http.Handler { return h }
+	}
+
+	rsaBlockSize := priv.Size()
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get(encryptedHeader) != encryptedValue {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			body, err := readAllLimit(r.Body, maxBodySize)
+			if err != nil {
+				http.Error(w, "unable to read body", http.StatusBadRequest)
+				return
+			}
+			_ = r.Body.Close()
+
+			minLen := rsaBlockSize + nonceSize
+			if len(body) < minLen {
+				http.Error(w, "encrypted body is too short", http.StatusBadRequest)
+				return
+			}
+
+			encKey := body[:rsaBlockSize]
+			nonce := body[rsaBlockSize : rsaBlockSize+nonceSize]
+			ciphertext := body[rsaBlockSize+nonceSize:]
+
+			aesKey, err := rsa.DecryptOAEP(sha256.New(), nil, priv, encKey, nil)
+			if err != nil {
+				log.Warn("decrypt rsa key failed", zap.Error(err))
+				http.Error(w, "bad encrypted payload", http.StatusBadRequest)
+				return
+			}
+			if len(aesKey) != aesKeySize {
+				log.Warn("bad aes key size", zap.Int("size", len(aesKey)))
+				http.Error(w, "bad encrypted payload", http.StatusBadRequest)
+				return
+			}
+
+			plain, err := decryptGCM(aesKey, nonce, ciphertext)
+			if err != nil {
+				log.Warn("decrypt gcm failed", zap.Error(err))
+				http.Error(w, "bad encrypted payload", http.StatusBadRequest)
+				return
+			}
+
+			r.Body = io.NopCloser(bytes.NewReader(plain))
+			r.ContentLength = int64(len(plain))
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func decryptGCM(key, nonce, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes.NewCipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("cipher.NewGCM: %w", err)
+	}
+	if len(nonce) != gcm.NonceSize() {
+		return nil, errors.New("bad nonce size")
+	}
+
+	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return plain, nil
+}
+
+func readAllLimit(rc io.ReadCloser, limit int64) ([]byte, error) {
+	defer rc.Close()
+	lr := io.LimitReader(rc, limit+1)
+	b, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > limit {
+		return nil, errors.New("body too large")
+	}
+	return b, nil
+}
 
 type (
 	responseData struct {
@@ -142,7 +248,6 @@ func gzipCompession() func(http.Handler) http.Handler {
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 			supportsGzip := strings.Contains(acceptEncoding, "gzip")
 			if supportsGzip {
-				w.Header().Set("Content-Encoding", "gzip")
 				cw := newCompressWriter(w)
 				ow = cw
 				defer cw.Close()

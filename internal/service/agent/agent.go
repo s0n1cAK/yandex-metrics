@@ -1,11 +1,16 @@
 package agent
 
 import (
+	"context"
+	"crypto/rsa"
+	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/s0n1cAK/yandex-metrics/internal/config/agent"
+	"github.com/s0n1cAK/yandex-metrics/internal/crypt"
 	"github.com/s0n1cAK/yandex-metrics/internal/lib"
 	models "github.com/s0n1cAK/yandex-metrics/internal/model"
 	"go.uber.org/zap"
@@ -27,18 +32,23 @@ type Agent struct {
 	Server         string
 	Logger         *zap.Logger
 	hash           string
+	publicKey      *rsa.PublicKey
 	PollInterval   time.Duration
 	ReportInterval time.Duration
-	httpLimiter    chan struct{}
+
+	httpLimiter chan struct{}
 }
 
 func New(log *zap.Logger, storage Storage) *Agent {
 	cfg, err := agent.NewConfig(log)
 	if err != nil {
-		log.Fatal("Error while parsing env", zap.Error(err))
+		if err == flag.ErrHelp {
+			os.Exit(0)
+		}
+		log.Fatal("Error while parsing config", zap.Error(err))
 	}
 
-	return &Agent{
+	a := &Agent{
 		Client:         cfg.Client,
 		Server:         cfg.Endpoint.String(),
 		Storage:        storage,
@@ -48,11 +58,21 @@ func New(log *zap.Logger, storage Storage) *Agent {
 		ReportInterval: cfg.ReportInterval.Duration(),
 		httpLimiter:    make(chan struct{}, cfg.RateLimit),
 	}
+
+	if cfg.CryptoKey != "" {
+		pub, err := crypt.LoadPublicKey(cfg.CryptoKey)
+		if err != nil {
+			a.Logger.Fatal("Error while loading public key", zap.Error(err))
+		}
+		a.publicKey = pub
+	}
+
+	return a
 }
 
 // https://gosamples.dev/range-over-ticker/
 
-func (agent *Agent) Run() error {
+func (agent *Agent) Run(ctx context.Context) error {
 	if agent.PollInterval < time.Second {
 		return fmt.Errorf("poll can't be lower that 2 seconds")
 	}
@@ -89,10 +109,20 @@ func (agent *Agent) Run() error {
 
 		case <-reportTicker.C:
 			agent.Logger.Info("Reporting metrics")
-			err := agent.Report()
-			if err != nil {
+			if err := agent.Report(); err != nil {
 				agent.Logger.Error("Error while reporting:", zap.Error(err))
 			}
+
+		case <-ctx.Done():
+			agent.Logger.Info("Shutdown signal received, flushing metrics")
+
+			_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := agent.Report(); err != nil {
+				agent.Logger.Error("Final report failed", zap.Error(err))
+			}
+			return nil
 		}
 	}
 }
