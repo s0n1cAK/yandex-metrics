@@ -18,6 +18,7 @@ type serverFileConfig struct {
 	DatabaseDSN   *string `json:"database_dsn"`
 	CryptoKey     *string `json:"crypto_key"`
 	TrustedSubnet *string `json:"trusted_subnet"`
+	GRPCAddress   *string `json:"grpc_address"`
 }
 
 func resolveConfigPath(args []string) (string, error) {
@@ -103,6 +104,9 @@ func applyServerFileConfig(cfg *Config, fc serverFileConfig) error {
 	}
 	if fc.TrustedSubnet != nil {
 		cfg.TrustedSubnet = strings.TrimSpace(*fc.TrustedSubnet)
+	}
+	if fc.GRPCAddress != nil {
+		cfg.GRPCAddress = *fc.GRPCAddress
 	}
 	return nil
 }

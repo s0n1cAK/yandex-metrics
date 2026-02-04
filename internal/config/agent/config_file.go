@@ -12,6 +12,7 @@ type agentFileConfig struct {
 	ReportInterval *string `json:"report_interval"`
 	PollInterval   *string `json:"poll_interval"`
 	CryptoKey      *string `json:"crypto_key"`
+	GRPCAddress    *string `json:"grpc_address"`
 }
 
 func resolveConfigPath(args []string) (string, error) {
@@ -86,6 +87,9 @@ func applyAgentFileConfig(cfg *Config, fc agentFileConfig) error {
 	}
 	if fc.CryptoKey != nil {
 		cfg.CryptoKey = *fc.CryptoKey
+	}
+	if fc.GRPCAddress != nil {
+		cfg.GRPCAddress = *fc.GRPCAddress
 	}
 	return nil
 }

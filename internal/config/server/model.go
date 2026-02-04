@@ -18,6 +18,7 @@ type Config struct {
 	AuditURL      string              `env:"AUDIT_URL"`
 	CryptoKey     string              `env:"CRYPTO_KEY"`
 	TrustedSubnet string              `env:"TRUSTED_SUBNET"`
+	GRPCAddress   string              `env:"GRPC_ADDRESS"`
 	Logger        *zap.Logger
 }
 
